@@ -1,0 +1,19 @@
+C:\Users\welco\AppData\Local\Programs\Python\Python314\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Data Validation extension is not supported and will be removed
+  warn(msg)
+C:\Users\welco\AppData\Local\Programs\Python\Python314\Lib\site-packages\openpyxl\worksheet\_reader.py:329: UserWarning: Data Validation extension is not supported and will be removed
+  warn(msg)
+--- Starting Verification ---
+Initializing Database...
+
+Parsing Disposal File
+  Success! Parsed 79 rows.
+  Saved to DB.
+
+Parsing Gate Pass File
+  Failed to parse as Gate Pass.
+  Attempting to parse as Disposal Records...
+  Success (as Disposal)! Parsed 13 rows.
+
+--- Verifying Database Content ---
+Disposal Records in DB: 92
+Gate Pass Records in DB: 0
