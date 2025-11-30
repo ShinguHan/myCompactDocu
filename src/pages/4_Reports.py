@@ -30,9 +30,6 @@ with tab1:
             try:
                 df = service.generate_monthly_summary(year, month)
                 db.close()
-
-                st.subheader("Raw Data")
-                st.write(df)
                 
                 if df.empty:
                     st.info(f"No data found for {year}-{month:02d}.")
@@ -70,30 +67,37 @@ with tab1:
                 st.error(f"Error generating report: {e}")
 
 with tab2:
-    st.header("Mapping Management")
-    st.markdown("Upload the '폐기물 업체 Mapping' Excel file to update company/item mappings.")
+    # st.header("Mapping Management")
+    # st.markdown("Upload the '폐기물 업체 Mapping' Excel file to update company/item mappings.")
     
-    uploaded_file = st.file_uploader("Upload Mapping File", type=["xlsx", "xls"])
+    # uploaded_file = st.file_uploader("Upload Mapping File", type=["xlsx", "xls"])
     
-    if uploaded_file is not None:
-        if st.button("Update Mappings"):
-            with st.spinner("Updating mappings..."):
-                try:
-                    db = SessionLocal()
-                    importer = MappingImporter()
+    # if uploaded_file is not None:
+    #     if st.button("Update Mappings"):
+    #         with st.spinner("Updating mappings..."):
+    #             try:
+    #                 db = SessionLocal()
+    #                 importer = MappingImporter()
                     
-                    data = importer.parse(uploaded_file)
-                    count = importer.save(data, db, uploaded_file.name)
+    #                 data = importer.parse(uploaded_file)
+    #                 count = importer.save(data, db, uploaded_file.name)
                     
-                    db.close()
-                except Exception as e:
-                    st.error(f"Error updating mappings: {e}")
+    #                 db.close()
+    #             except Exception as e:
+    #                 st.error(f"Error updating mappings: {e}")
 
-    st.divider()
+    # st.divider()
     st.subheader("Manage Categories")
     st.markdown("Assign categories to items that are missing them.")
 
     db = SessionLocal()
+    
+    # Sync mappings to ensure all transactions are represented
+    service = ReportService(db)
+    new_count = service.sync_mappings()
+    if new_count > 0:
+        st.toast(f"Found {new_count} new items. Please assign categories.")
+    
     # Fetch mappings with missing or Unknown category
     mappings_query = db.query(ReportMapping)
     mappings_df = pd.read_sql(mappings_query.statement, db.bind)
@@ -120,7 +124,7 @@ with tab2:
         edited_df = st.data_editor(
             mappings_df,
             column_config=column_config,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             key="mapping_editor"
         )
