@@ -106,17 +106,21 @@ def _fill_item(ws, tx_date, item, col_offset, company_name=""):
 def _insert_photo(ws, photo_path: str):
     """반출증 사진 영역(row 36~)에 이미지 삽입. 원본 비율 유지, 가로 중앙 정렬."""
     try:
+        from PIL import Image as PILImage
         from openpyxl.drawing.spreadsheet_drawing import OneCellAnchor, AnchorMarker
         from openpyxl.drawing.xdr import XDRPositiveSize2D
 
         EMU_PER_PX = 9525
         CHAR_TO_PX = 7  # Calibri 11pt 기준 1문자 ≈ 7px
 
-        img = XLImage(photo_path)
-        orig_w = img.width or 1
-        orig_h = img.height or 1
+        # PIL로 실제 픽셀 크기 읽기 (DPI 메타데이터 무관하게 정확한 비율 유지)
+        with PILImage.open(photo_path) as pil_img:
+            orig_w, orig_h = pil_img.size
+
         target_w = 480
         target_h = int(orig_h * target_w / orig_w)
+
+        img = XLImage(photo_path)
 
         # A~Q 열 너비 합계로 전체 영역 너비 계산
         total_w_px = sum(
