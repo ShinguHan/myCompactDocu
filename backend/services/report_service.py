@@ -40,9 +40,15 @@ def get_monthly_summary(year: int, month: int, db: Session) -> schemas.MonthlySu
     curr_map: dict = {}
     for tx in curr_txs:
         key = (tx.company.name, tx.item.report_name or tx.item.name, tx.item.category, tx.unit_price)
+        factor = tx.item.kg_per_unit or 1.0
         if key not in curr_map:
-            curr_map[key] = {"qty": 0, "amt": 0}
-        curr_map[key]["qty"] += tx.quantity
+            curr_map[key] = {
+                "qty": 0, "amt": 0, "ea": 0,
+                "has_factor": tx.item.kg_per_unit is not None,
+                "unit": tx.item.unit,
+            }
+        curr_map[key]["qty"] += tx.quantity * factor  # 보고서 표시용 kg 환산
+        curr_map[key]["ea"]  += tx.quantity           # 원래 EA/대 수량 (비고란)
         curr_map[key]["amt"] += tx.total_amount
 
     byproducts: List[schemas.ReportRow] = []
@@ -50,6 +56,13 @@ def get_monthly_summary(year: int, month: int, db: Session) -> schemas.MonthlySu
 
     for (company_name, item_name, category, unit_price), v in sorted(curr_map.items()):
         prev_amt = prev_map.get((company_name, item_name), 0)
+        if v["has_factor"]:
+            note = f"{int(v['ea'])} EA"
+        elif v["unit"] == "원/대" and unit_price and v["amt"]:
+            trucks = int(round(abs(v["amt"]) / abs(unit_price)))
+            note = f"차량대수:{trucks}대"
+        else:
+            note = None
         row = schemas.ReportRow(
             company_name=company_name,
             item_name=item_name,
@@ -57,6 +70,7 @@ def get_monthly_summary(year: int, month: int, db: Session) -> schemas.MonthlySu
             current_quantity=v["qty"],
             current_amount=v["amt"],
             prev_amount=prev_amt,
+            note=note,
         )
         if category == models.CategoryEnum.byproduct:
             byproducts.append(row)
@@ -94,11 +108,15 @@ def get_monthly_summary(year: int, month: int, db: Session) -> schemas.MonthlySu
     total_curr_ws = sum(r.current_amount for r in wastes)
     total_prev_ws = sum(r.prev_amount for r in wastes)
 
-    # 전월 수량
-    prev_by_qty = sum(tx.quantity for tx in prev_txs
-                      if tx.item.category == models.CategoryEnum.byproduct)
-    prev_ws_qty = sum(tx.quantity for tx in prev_txs
-                      if tx.item.category == models.CategoryEnum.waste)
+    # 전월 수량 (EA 품목은 kg_per_unit 환산 적용)
+    prev_by_qty = sum(
+        tx.quantity * (tx.item.kg_per_unit or 1.0) for tx in prev_txs
+        if tx.item.category == models.CategoryEnum.byproduct
+    )
+    prev_ws_qty = sum(
+        tx.quantity * (tx.item.kg_per_unit or 1.0) for tx in prev_txs
+        if tx.item.category == models.CategoryEnum.waste
+    )
 
     # YTD (당해연도 1월 ~ 당월 누계/평균)
     ytd_by, ytd_ws = 0.0, 0.0
@@ -110,6 +128,23 @@ def get_monthly_summary(year: int, month: int, db: Session) -> schemas.MonthlySu
                 ytd_ws += tx.total_amount
     ytd_avg_by = ytd_by / month
     ytd_avg_ws = ytd_ws / month
+
+    # 전년도 월평균: 2025는 원본 Excel 고정값, 이후 연도는 DB에서 계산
+    _FIXED_2025 = {'byproduct': 11_253_267.0, 'waste': -7_840_358.0}
+    prev_year = year - 1
+    if prev_year == 2025:
+        prev_year_avg_by = _FIXED_2025['byproduct']
+        prev_year_avg_ws = _FIXED_2025['waste']
+    else:
+        py_by, py_ws = 0.0, 0.0
+        for m in range(1, 13):
+            for tx in _query_month(prev_year, m):
+                if tx.item.category == models.CategoryEnum.byproduct:
+                    py_by += tx.total_amount
+                else:
+                    py_ws += tx.total_amount
+        prev_year_avg_by = py_by / 12
+        prev_year_avg_ws = py_ws / 12
 
     return schemas.MonthlySummary(
         year=year,
@@ -126,6 +161,8 @@ def get_monthly_summary(year: int, month: int, db: Session) -> schemas.MonthlySu
         ytd_cum_waste=ytd_ws,
         ytd_avg_byproduct=ytd_avg_by,
         ytd_avg_waste=ytd_avg_ws,
+        prev_year_avg_byproduct=prev_year_avg_by,
+        prev_year_avg_waste=prev_year_avg_ws,
     )
 
 

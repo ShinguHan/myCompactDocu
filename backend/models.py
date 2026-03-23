@@ -26,6 +26,7 @@ class Item(Base):
     report_name = Column(String, nullable=True)                 # 보고서 표기명 (다를 경우)
     unit = Column(String, nullable=False, default="원/kg")      # 원/kg, 원/EA, 원/대
     category = Column(Enum(CategoryEnum), nullable=False)
+    kg_per_unit = Column(Float, nullable=True)                  # EA→kg 환산계수 (예: 200L드럼=20)
 
     companies = relationship("ItemCompany", back_populates="item", cascade="all, delete-orphan")
     contracts = relationship("Contract", back_populates="item", cascade="all, delete-orphan")

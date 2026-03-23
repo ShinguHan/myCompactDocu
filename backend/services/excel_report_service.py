@@ -24,12 +24,13 @@ COL_PREV    = 17   # Q  전월 금액
 COL_NOTE    = 20   # T  비고
 
 # 요약 섹션 열 (템플릿: 전월=D-H, 당월=I-M 순서)
-COL_S_PQTY  = 4    # D  전월 수량
-COL_S_PAMT  = 6    # F  전월 금액
-COL_S_QTY   = 9    # I  당월 수량
-COL_S_AMT   = 11   # K  당월 금액
-COL_S_AVG   = 17   # Q  2026 월평균 금액
-COL_S_CUM   = 20   # T  누계 금액
+COL_S_PQTY      = 4    # D  전월 수량
+COL_S_PAMT      = 6    # F  전월 금액
+COL_S_QTY       = 9    # I  당월 수량
+COL_S_AMT       = 11   # K  당월 금액
+COL_S_PREV_AVG  = 14   # N  전년도 월평균 금액 (2025 고정 or DB 계산)
+COL_S_AVG       = 17   # Q  당해연도 월평균 금액
+COL_S_CUM       = 20   # T  누계 금액
 
 # 섹션 행 범위
 BY_DATA_START  = 16   # 부산물 첫 데이터 행
@@ -43,7 +44,7 @@ ROW_WS = 9    # 처리(폐기물)
 ROW_NE = 10   # 이익
 
 # 초기화 대상 열 목록
-CLEAR_SUMMARY_COLS = [4, 6, 9, 11, 14, 17, 20]   # D F I K N Q T
+CLEAR_SUMMARY_COLS = [4, 6, 9, 11, 14, 17, 20]   # D F I K N(전년평균) Q(당해평균) T(누계)
 CLEAR_DETAIL_COLS  = [12, 14, 17, 20]              # L N Q T
 
 
@@ -247,11 +248,16 @@ def generate_monthly_report(summary: schemas.MonthlySummary,
     by_curr_qty = sum(r.current_quantity or 0 for r in summary.byproducts)
     ws_curr_qty = sum(r.current_quantity or 0 for r in summary.wastes)
 
+    # 연도 레이블 동적 업데이트 (row 5: 전년도 / 당해연도)
+    safe_write(ws, 5, COL_S_PREV_AVG, year - 1)
+    safe_write(ws, 5, COL_S_AVG,      year)
+
     # 매각 (부산물)
     safe_write(ws, ROW_BY, COL_S_PQTY, summary.total_prev_byproduct_qty or None)
     safe_write(ws, ROW_BY, COL_S_PAMT, summary.total_prev_byproduct)
     safe_write(ws, ROW_BY, COL_S_QTY,  by_curr_qty or None)
     safe_write(ws, ROW_BY, COL_S_AMT,  summary.total_current_byproduct)
+    safe_write(ws, ROW_BY, COL_S_PREV_AVG, round(summary.prev_year_avg_byproduct) if summary.prev_year_avg_byproduct else None)
     safe_write(ws, ROW_BY, COL_S_AVG,  round(summary.ytd_avg_byproduct) or None)
     safe_write(ws, ROW_BY, COL_S_CUM,  summary.ytd_cum_byproduct or None)
 
@@ -260,18 +266,24 @@ def generate_monthly_report(summary: schemas.MonthlySummary,
     safe_write(ws, ROW_WS, COL_S_PAMT, summary.total_prev_waste)
     safe_write(ws, ROW_WS, COL_S_QTY,  ws_curr_qty or None)
     safe_write(ws, ROW_WS, COL_S_AMT,  summary.total_current_waste)
+    safe_write(ws, ROW_WS, COL_S_PREV_AVG, round(summary.prev_year_avg_waste) if summary.prev_year_avg_waste else None)
     safe_write(ws, ROW_WS, COL_S_AVG,  round(summary.ytd_avg_waste) or None)
     safe_write(ws, ROW_WS, COL_S_CUM,  summary.ytd_cum_waste or None)
 
     # 이익
-    net_curr = summary.total_current_byproduct + summary.total_current_waste
-    net_prev = summary.total_prev_byproduct    + summary.total_prev_waste
-    net_avg  = summary.ytd_avg_byproduct       + summary.ytd_avg_waste
-    net_cum  = summary.ytd_cum_byproduct       + summary.ytd_cum_waste
-    safe_write(ws, ROW_NE, COL_S_PAMT, net_prev)
-    safe_write(ws, ROW_NE, COL_S_AMT,  net_curr)
-    safe_write(ws, ROW_NE, COL_S_AVG,  round(net_avg) or None)
-    safe_write(ws, ROW_NE, COL_S_CUM,  net_cum or None)
+    net_curr      = summary.total_current_byproduct + summary.total_current_waste
+    net_prev      = summary.total_prev_byproduct    + summary.total_prev_waste
+    net_avg       = summary.ytd_avg_byproduct       + summary.ytd_avg_waste
+    net_cum       = summary.ytd_cum_byproduct       + summary.ytd_cum_waste
+    net_prev_avg  = (
+        round(summary.prev_year_avg_byproduct + summary.prev_year_avg_waste)
+        if summary.prev_year_avg_byproduct is not None else None
+    )
+    safe_write(ws, ROW_NE, COL_S_PAMT,     net_prev)
+    safe_write(ws, ROW_NE, COL_S_AMT,      net_curr)
+    safe_write(ws, ROW_NE, COL_S_PREV_AVG, net_prev_avg)
+    safe_write(ws, ROW_NE, COL_S_AVG,      round(net_avg) or None)
+    safe_write(ws, ROW_NE, COL_S_CUM,      net_cum or None)
 
     # ── 4. 부산물 세부현황 ────────────────────────────────────────────────────
     _fill_section(ws, summary.byproducts, BY_DATA_START, BY_TOTAL_ROW)

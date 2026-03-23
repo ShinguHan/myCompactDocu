@@ -21,6 +21,7 @@ class ItemCreate(BaseModel):
     report_name: Optional[str] = None
     unit: str = "원/kg"
     category: CategoryEnum
+    kg_per_unit: Optional[float] = None
 
 
 class ItemUpdate(BaseModel):
@@ -28,6 +29,7 @@ class ItemUpdate(BaseModel):
     report_name: Optional[str] = None
     unit: Optional[str] = None
     category: Optional[CategoryEnum] = None
+    kg_per_unit: Optional[float] = None
 
 
 class ItemRead(BaseModel):
@@ -37,6 +39,7 @@ class ItemRead(BaseModel):
     report_name: Optional[str]
     unit: str
     category: CategoryEnum
+    kg_per_unit: Optional[float] = None
 
 
 # ── Company ───────────────────────────────────────────────────────────────────
@@ -207,6 +210,9 @@ class MonthlySummary(BaseModel):
     ytd_cum_waste: float = 0.0
     ytd_avg_byproduct: float = 0.0
     ytd_avg_waste: float = 0.0
+    # 전년도 월평균 (2025는 고정값, 이후 연도는 DB 계산)
+    prev_year_avg_byproduct: Optional[float] = None
+    prev_year_avg_waste: Optional[float] = None
 
 
 class AnnualRow(BaseModel):
