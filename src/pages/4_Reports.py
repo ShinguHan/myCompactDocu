@@ -1,157 +1,183 @@
 import streamlit as st
 import pandas as pd
 import datetime
+import os
 from database import SessionLocal
 from services.report_service import ReportService
-from importers.mapping_importer import MappingImporter
 from models import ReportMapping
+from services.print_service import PrintService
 
 st.set_page_config(page_title="Reports", page_icon="📈", layout="wide")
 
 st.title("📈 Reports")
 
-tab1, tab2 = st.tabs(["Monthly Summary", "Mapping Management"])
+# Base paths (relative to this file's location)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+TEMPLATE_PATH = os.path.join(BASE_DIR, "ref", "반출증_Template.xlsx")
+OUTPUT_DIR = os.path.join(BASE_DIR, "output")
 
+tab1, tab2, tab3 = st.tabs(["Monthly Summary", "Mapping Management", "Transaction History"])
+
+# ─────────────────────────────────────────────
+# Tab 1: Monthly Summary
+# ─────────────────────────────────────────────
 with tab1:
     st.header("Monthly Summary Report")
-    
+
     col1, col2 = st.columns(2)
     with col1:
-        current_year = datetime.date.today().year
-        year = st.number_input("Year", min_value=2000, max_value=2100, value=current_year)
+        year = st.number_input("Year", min_value=2000, max_value=2100, value=datetime.date.today().year)
     with col2:
-        current_month = datetime.date.today().month
-        month = st.number_input("Month", min_value=1, max_value=12, value=current_month)
-        
+        month = st.number_input("Month", min_value=1, max_value=12, value=datetime.date.today().month)
+
     if st.button("Generate Report", type="primary"):
         with st.spinner("Generating report..."):
             db = SessionLocal()
             service = ReportService(db)
             try:
                 df = service.generate_monthly_summary(year, month)
-                db.close()
-                
-                if df.empty:
-                    st.info(f"No data found for {year}-{month:02d}.")
-                else:
-                    st.success(f"Report generated for {year}-{month:02d}")
-                    
-                    # Split by Category
-                    categories = df['Category'].unique()
-                    
-                    # Sort to ensure consistent order (e.g. 부산물 first if desired, or just sort)
-                    categories.sort()
-                    
-                    for cat in categories:
-                        st.subheader(f"{cat}")
-                        cat_df = df[df['Category'] == cat].drop(columns=['Category'])
-                        st.dataframe(cat_df, width='stretch')
-                        
-                        # Subtotal for category
-                        total_qty = cat_df['Total Quantity'].sum()
-                        total_amt = cat_df['Total Amount'].sum()
-                        st.markdown(f"**{cat} Total:** Qty: {total_qty:,.1f}, Amount: {total_amt:,.0f} KRW")
-                        st.divider()
-                    
-                    # Export
-                    # Simple CSV export for now, or Excel
-                    csv = df.to_csv(index=False).encode('utf-8-sig')
-                    st.download_button(
-                        label="📥 Download CSV (All Data)",
-                        data=csv,
-                        file_name=f"monthly_report_{year}_{month:02d}.csv",
-                        mime="text/csv"
-                    )
-                    
+                st.success(f"Report generated for {year}-{month:02d}")
             except Exception as e:
                 st.error(f"Error generating report: {e}")
+                df = pd.DataFrame()
+            finally:
+                db.close()
 
+            if not df.empty:
+                by_products = df[df['Category'] == '부산물'].drop(columns=['Category'])
+                waste = df[df['Category'] == '폐기물'].drop(columns=['Category'])
+
+                column_config = {
+                    "Unit Price": st.column_config.NumberColumn("단가", format="%d"),
+                    "Current Qty": st.column_config.NumberColumn("당월 계근량", format="%d"),
+                    "Current Amount": st.column_config.NumberColumn("당월 매각금액", format="%d"),
+                    "Previous Amount": st.column_config.NumberColumn("전월 매각금액", format="%d"),
+                    "Company": st.column_config.TextColumn("업체명"),
+                    "Item": st.column_config.TextColumn("품명"),
+                    "Note": st.column_config.TextColumn("비고"),
+                }
+                col_order = ["Company", "Item", "Unit Price", "Current Qty", "Current Amount", "Previous Amount", "Note"]
+
+                st.subheader("1. 부산물 매각현황")
+                if not by_products.empty:
+                    st.dataframe(by_products, use_container_width=True, hide_index=True,
+                                 column_config=column_config, column_order=col_order)
+                    st.markdown(f"**합계**: 당월 수량 `{by_products['Current Qty'].sum():,.0f}`, "
+                                f"당월 금액 `{by_products['Current Amount'].sum():,.0f}`, "
+                                f"전월 금액 `{by_products['Previous Amount'].sum():,.0f}`")
+                else:
+                    st.info("이번 달 부산물 데이터가 없습니다.")
+
+                st.divider()
+
+                st.subheader("2. 폐기물 처리현황")
+                if not waste.empty:
+                    st.dataframe(waste, use_container_width=True, hide_index=True,
+                                 column_config=column_config, column_order=col_order)
+                    st.markdown(f"**합계**: 당월 수량 `{waste['Current Qty'].sum():,.0f}`, "
+                                f"당월 금액 `{waste['Current Amount'].sum():,.0f}`, "
+                                f"전월 금액 `{waste['Previous Amount'].sum():,.0f}`")
+                else:
+                    st.info("이번 달 폐기물 데이터가 없습니다.")
+            else:
+                st.info(f"{year}-{month:02d} 데이터가 없습니다.")
+
+# ─────────────────────────────────────────────
+# Tab 2: Mapping Management
+# ─────────────────────────────────────────────
 with tab2:
-    # st.header("Mapping Management")
-    # st.markdown("Upload the '폐기물 업체 Mapping' Excel file to update company/item mappings.")
-    
-    # uploaded_file = st.file_uploader("Upload Mapping File", type=["xlsx", "xls"])
-    
-    # if uploaded_file is not None:
-    #     if st.button("Update Mappings"):
-    #         with st.spinner("Updating mappings..."):
-    #             try:
-    #                 db = SessionLocal()
-    #                 importer = MappingImporter()
-                    
-    #                 data = importer.parse(uploaded_file)
-    #                 count = importer.save(data, db, uploaded_file.name)
-                    
-    #                 db.close()
-    #             except Exception as e:
-    #                 st.error(f"Error updating mappings: {e}")
-
-    # st.divider()
-    st.subheader("Manage Categories")
-    st.markdown("Assign categories to items that are missing them.")
+    st.header("Mapping Management")
+    st.markdown("품목/업체에 카테고리(부산물/폐기물)를 지정합니다.")
 
     db = SessionLocal()
-    
-    # Sync mappings to ensure all transactions are represented
     service = ReportService(db)
     new_count = service.sync_mappings()
     if new_count > 0:
-        st.toast(f"Found {new_count} new items. Please assign categories.")
-    
-    # Fetch mappings with missing or Unknown category
+        st.toast(f"새 항목 {new_count}개 발견. 카테고리를 지정해주세요.")
+
     mappings_query = db.query(ReportMapping)
-    mappings_df = pd.read_sql(mappings_query.statement, db.bind)
-    
+    with db.get_bind().connect() as conn:
+        mappings_df = pd.read_sql(mappings_query.statement, conn)
+
     if not mappings_df.empty:
-        # Ensure category is string
         mappings_df['category'] = mappings_df['category'].fillna('Unknown')
-        
-        # Configure column config for data editor
+
         column_config = {
             "category": st.column_config.SelectboxColumn(
                 "Category",
-                help="Select the category for this item",
                 width="medium",
-                options=[
-                    "부산물",
-                    "폐기물",
-                    "Unknown"
-                ],
+                options=["부산물", "폐기물", "Unknown"],
                 required=True,
             )
         }
-        
+
         edited_df = st.data_editor(
             mappings_df,
             column_config=column_config,
-            width="stretch",
+            use_container_width=True,
             hide_index=True,
             key="mapping_editor"
         )
-        
+
         if st.button("Save Changes"):
             try:
-                # Iterate and update
                 count = 0
-                for index, row in edited_df.iterrows():
-                    # Find original record
-                    mapping_id = row['id']
-                    new_cat = row['category']
-                    
-                    # Update in DB
-                    record = db.query(ReportMapping).filter(ReportMapping.id == mapping_id).first()
-                    if record and record.category != new_cat:
-                        record.category = new_cat
+                for _, row in edited_df.iterrows():
+                    record = db.query(ReportMapping).filter(ReportMapping.id == row['id']).first()
+                    if record and record.category != row['category']:
+                        record.category = row['category']
                         count += 1
-                
                 db.commit()
-                st.success(f"Successfully updated {count} mappings!")
+                st.success(f"{count}개 항목이 업데이트되었습니다.")
                 st.rerun()
-                
             except Exception as e:
-                st.error(f"Error saving changes: {e}")
+                st.error(f"저장 오류: {e}")
     else:
-        st.info("No mappings found.")
-        
+        st.info("매핑 데이터가 없습니다.")
+
     db.close()
 
+# ─────────────────────────────────────────────
+# Tab 3: Transaction History & Exit Pass
+# ─────────────────────────────────────────────
+with tab3:
+    st.header("Transaction History & Exit Pass")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        start_date = st.date_input("Start Date", value=datetime.date.today() - datetime.timedelta(days=7))
+    with col2:
+        end_date = st.date_input("End Date", value=datetime.date.today())
+
+    if st.button("Search Transactions"):
+        db = SessionLocal()
+        service = ReportService(db)
+        transactions = service.get_grouped_transactions(start_date, end_date)
+        db.close()
+
+        if not transactions:
+            st.info("해당 기간에 거래 내역이 없습니다.")
+        else:
+            st.success(f"{len(transactions)}개 그룹 조회됨.")
+
+            for i, tx in enumerate(transactions):
+                with st.expander(f"{tx['date']} - {tx['company_name']} ({len(tx['items'])}개 품목)"):
+                    st.table(pd.DataFrame(tx['items']))
+
+                    print_service = PrintService(TEMPLATE_PATH)
+                    output_filename = f"exit_pass_{tx['date']}_{tx['company_name']}.xlsx".replace(" ", "_").replace(":", "-")
+                    output_path = os.path.join(OUTPUT_DIR, output_filename)
+                    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+                    try:
+                        print_service.generate_exit_pass(tx, output_path)
+                        with open(output_path, "rb") as f:
+                            st.download_button(
+                                label="반출증 다운로드 (Excel)",
+                                data=f,
+                                file_name=output_filename,
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key=f"dl_{i}"
+                            )
+                    except Exception as e:
+                        st.error(f"반출증 생성 오류: {e}")

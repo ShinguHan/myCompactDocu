@@ -1,1 +1,46 @@
-/ref
+# ── 참조 원본 Excel (개인 업무 데이터) ──────────────────────────────────────
+/ref/
+
+# ── Python 캐시 ──────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# ── 생성된 보고서 출력물 ──────────────────────────────────────────────────────
+/output/
+
+# ── 개발/디버깅용 임시 스크립트 ───────────────────────────────────────────────
+analyze_excel.py
+debug_*.py
+debug_report_mappings_dump.csv
+export_mappings.py
+find_and_read_report.py
+inspect_*.py
+list_sheets.py
+read_headers.py
+repair_mappings*.py
+test.py
+test_importer.py
+test_mapping_import.py
+test_sync.py
+test_output.xlsx
+analysis_result.txt
+corrected_mapping.xlsx
+
+# ── Claude Code 내부 파일 ────────────────────────────────────────────────────
+.claude/
+
+# ── 프론트엔드 빌드 ──────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+
+# ── 임시/백업 파일 ────────────────────────────────────────────────────────────
+*복사본*
+~$*.xlsx
+
+# ── IDE ──────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
