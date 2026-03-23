@@ -91,6 +91,7 @@ def generate_exit_pass(exit_pass) -> str:
         _insert_photo(ws, exit_pass.photo_path)
 
     wb.save(output_path)
+    _fix_sheet_format(output_path)
     return output_path
 
 
@@ -177,6 +178,31 @@ def _copy_template_block(ws, col_offset):
             continue
         for col in range(max(min_col, 1), min(max_col, TEMPLATE_COLS) + 1):
             ws.column_dimensions[get_column_letter(col + col_offset)].width = src_dim.width
+
+
+def _fix_sheet_format(path: str):
+    """openpyxl이 추가하는 baseColWidth 속성 제거 (컬럼 너비 렌더링 원본과 동일하게 유지)"""
+    all_files = {}
+    with zipfile.ZipFile(path, 'r') as z:
+        for name in z.namelist():
+            all_files[name] = z.read(name)
+
+    import re
+    changed = False
+    for name, data in all_files.items():
+        if 'xl/worksheets/sheet' in name and name.endswith('.xml'):
+            text = data.decode('utf-8')
+            new_text = re.sub(r'\s*baseColWidth="\d+"', '', text)
+            if new_text != text:
+                all_files[name] = new_text.encode('utf-8')
+                changed = True
+
+    if changed:
+        tmp = path + '._tmp'
+        with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED) as zout:
+            for name, data in all_files.items():
+                zout.writestr(name, data)
+        os.replace(tmp, path)
 
 
 def _shift_formula(formula, col_offset):
