@@ -157,7 +157,6 @@ export default function PhotoEditor({ open, onClose, onDone }: Props) {
       style={{ top: 0, padding: 0, margin: 0, maxWidth: '100vw' }}
       styles={{
         wrapper: { overflow: 'hidden' },
-        content: { borderRadius: 0, padding: 0, overflow: 'hidden' },
         body: { padding: 0 },
       }}
     >

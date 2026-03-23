@@ -51,7 +51,7 @@ function TrendChart({ year }: { year: number }) {
       <YAxis tickFormatter={fmtAmt} tick={{ fontSize: 11 }}
         axisLine={false} tickLine={false} width={56} />
       <Tooltip
-        formatter={(value: number, name: string) => [`${value.toLocaleString()}원`, name]}
+        formatter={(value, name) => [`${Number(value ?? 0).toLocaleString()}원`, String(name)]}
         labelStyle={{ fontWeight: 600 }}
       />
       <Legend wrapperStyle={{ fontSize: 13 }} />
