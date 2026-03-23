@@ -23,9 +23,19 @@ function BatchEntryForm({ onSaved }: { onSaved: () => void }) {
   const qc = useQueryClient()
   const [form] = Form.useForm()
   const [rows, setRows] = useState<any[]>([])
+  const [selectedItemId, setSelectedItemId] = useState<number | undefined>()
 
   const { data: items = [] } = useQuery({ queryKey: ['items'], queryFn: () => api.getItems() })
   const { data: companies = [] } = useQuery({ queryKey: ['companies'], queryFn: api.getCompanies })
+  const { data: itemCompanies = [] } = useQuery({
+    queryKey: ['item-companies', selectedItemId],
+    queryFn: () => api.getItemCompanies({ item_id: selectedItemId }),
+    enabled: selectedItemId !== undefined,
+  })
+
+  const filteredCompanies = selectedItemId !== undefined
+    ? companies.filter(c => itemCompanies.some(ic => ic.company_id === c.id))
+    : companies
 
   const save = useMutation({
     mutationFn: () => api.batchCreateTransactions(rows),
@@ -59,9 +69,12 @@ function BatchEntryForm({ onSaved }: { onSaved: () => void }) {
   }
 
   const onItemChange = async (itemId: number) => {
-    const companyId = form.getFieldValue('company_id')
+    setSelectedItemId(itemId)
+    form.setFieldsValue({ company_id: undefined })
     const dateVal = form.getFieldValue('date')
-    if (!itemId || !companyId || !dateVal) return
+    if (!itemId || !dateVal) return
+    const companyId = form.getFieldValue('company_id')
+    if (!companyId) return
     const contract = await api.getActiveContract(itemId, companyId, dateVal.format('YYYY-MM-DD'))
     if (contract) form.setFieldsValue({ unit_price: contract.unit_price })
   }
@@ -88,7 +101,7 @@ function BatchEntryForm({ onSaved }: { onSaved: () => void }) {
         <Form.Item name="company_id" label="업체" rules={[{ required: true, message: '업체 필수' }]}>
           <Select showSearch style={{ width: 200 }} placeholder="업체"
             optionFilterProp="label" onChange={onCompanyChange}
-            options={companies.map(c => ({ value: c.id, label: c.name }))} />
+            options={filteredCompanies.map(c => ({ value: c.id, label: c.name }))} />
         </Form.Item>
         <Form.Item name="quantity" label="처리량" rules={[{ required: true, message: '처리량 필수' }]}>
           <InputNumber style={{ width: 120 }} placeholder="수량" />
@@ -346,9 +359,15 @@ function QuickExitPassModal({
 export default function LedgerPage() {
   const qc = useQueryClient()
   const [form] = Form.useForm()
-  const [filters, setFilters] = useState<{ start?: string; end?: string; company_id?: number; item_id?: number }>({})
+  const currentYear = dayjs().year()
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear)
+  const [filters, setFilters] = useState<{ start?: string; end?: string; company_id?: number; item_id?: number }>({
+    start: `${currentYear}-01-01`,
+    end: `${currentYear}-12-31`,
+  })
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const [editOpen, setEditOpen] = useState(false)
+  const [editItemId, setEditItemId] = useState<number | undefined>()
   const [importOpen, setImportOpen] = useState(false)
   const [showEntry, setShowEntry] = useState(false)
   const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([])
@@ -360,6 +379,14 @@ export default function LedgerPage() {
   })
   const { data: items = [] } = useQuery({ queryKey: ['items'], queryFn: () => api.getItems() })
   const { data: companies = [] } = useQuery({ queryKey: ['companies'], queryFn: api.getCompanies })
+  const { data: editItemCompanies = [] } = useQuery({
+    queryKey: ['item-companies', editItemId],
+    queryFn: () => api.getItemCompanies({ item_id: editItemId }),
+    enabled: editItemId !== undefined,
+  })
+  const editFilteredCompanies = editItemId !== undefined
+    ? companies.filter(c => editItemCompanies.some(ic => ic.company_id === c.id))
+    : companies
 
   const remove = useMutation({
     mutationFn: api.deleteTransaction,
@@ -417,6 +444,7 @@ export default function LedgerPage() {
         <Space>
           <Button size="small" icon={<EditOutlined />} onClick={() => {
             setEditingTx(record)
+            setEditItemId(record.item_id)
             form.setFieldsValue({ ...record, date: dayjs(record.date) })
             setEditOpen(true)
           }} />
@@ -444,6 +472,15 @@ export default function LedgerPage() {
 
       {/* 필터 */}
       <div style={{ background: '#fff', padding: '12px 16px', borderRadius: 8, marginBottom: 12, display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Select
+          value={selectedYear}
+          style={{ width: 90 }}
+          onChange={(year: number) => {
+            setSelectedYear(year)
+            setFilters(f => ({ ...f, start: `${year}-01-01`, end: `${year}-12-31` }))
+          }}
+          options={Array.from({ length: 5 }, (_, i) => currentYear - i).map(y => ({ value: y, label: `${y}년` }))}
+        />
         <RangePicker onChange={(dates) => setFilters(f => ({
           ...f,
           start: dates?.[0]?.format('YYYY-MM-DD'),
@@ -521,10 +558,11 @@ export default function LedgerPage() {
             <DatePicker style={{ width: '100%' }} />
           </Form.Item>
           <Form.Item name="item_id" label="품목" rules={[{ required: true }]}>
-            <Select options={items.map(i => ({ value: i.id, label: i.name }))} />
+            <Select options={items.map(i => ({ value: i.id, label: i.name }))}
+              onChange={(id: number) => { setEditItemId(id); form.setFieldsValue({ company_id: undefined }) }} />
           </Form.Item>
           <Form.Item name="company_id" label="업체" rules={[{ required: true }]}>
-            <Select options={companies.map(c => ({ value: c.id, label: c.name }))} />
+            <Select options={editFilteredCompanies.map(c => ({ value: c.id, label: c.name }))} />
           </Form.Item>
           <Form.Item name="quantity" label="처리량" rules={[{ required: true }]}>
             <InputNumber style={{ width: '100%' }} />

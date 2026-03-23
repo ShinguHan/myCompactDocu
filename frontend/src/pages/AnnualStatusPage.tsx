@@ -25,16 +25,22 @@ export default function AnnualStatusPage() {
   const totalAmt = rows.reduce((s, r) => s + r.total_amount, 0)
 
   const columns = [
-    { title: '일자', dataIndex: 'date', key: 'date', width: 100 },
-    { title: '품목', dataIndex: 'item_name', key: 'item_name' },
-    { title: '업체', dataIndex: 'company_name', key: 'company_name' },
-    { title: '처리량', dataIndex: 'quantity', key: 'quantity', align: 'right' as const },
+    { title: '일자', dataIndex: 'date', key: 'date', width: 100,
+      sorter: (a: any, b: any) => a.date.localeCompare(b.date) },
+    { title: '품목', dataIndex: 'item_name', key: 'item_name',
+      sorter: (a: any, b: any) => a.item_name.localeCompare(b.item_name) },
+    { title: '업체', dataIndex: 'company_name', key: 'company_name',
+      sorter: (a: any, b: any) => a.company_name.localeCompare(b.company_name) },
+    { title: '처리량', dataIndex: 'quantity', key: 'quantity', align: 'right' as const,
+      sorter: (a: any, b: any) => a.quantity - b.quantity },
     {
       title: '단가', dataIndex: 'unit_price', key: 'unit_price', align: 'right' as const,
+      sorter: (a: any, b: any) => a.unit_price - b.unit_price,
       render: (v: number) => fmt(v)
     },
     {
       title: '금액', dataIndex: 'total_amount', key: 'total_amount', align: 'right' as const,
+      sorter: (a: any, b: any) => a.total_amount - b.total_amount,
       render: (v: number) => <span style={{ color: v < 0 ? '#cf1322' : undefined }}>{fmt(v)}</span>
     },
     { title: '비고', dataIndex: 'note', key: 'note' },

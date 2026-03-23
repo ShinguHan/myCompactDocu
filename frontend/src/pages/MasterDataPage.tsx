@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
 import { Tabs, Table, Button, Modal, Form, Input, Select, InputNumber,
-  DatePicker, Tag, Space, Popconfirm, message } from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined } from '@ant-design/icons'
+  DatePicker, Tag, Space, Popconfirm, message, Typography } from 'antd'
+import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined,
+  ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import { api } from '../api'
@@ -243,6 +244,7 @@ function ContractsSection() {
   const [open, setOpen] = useState(false)
   const [itemFilter, setItemFilter] = useState<number | undefined>()
   const [companyFilter, setCompanyFilter] = useState<number | undefined>()
+  const [view, setView] = useState<'current' | 'history'>('current')
 
   const { data: contracts = [], isLoading } = useQuery({
     queryKey: ['contracts'],
@@ -251,11 +253,33 @@ function ContractsSection() {
   const { data: items = [] } = useQuery({ queryKey: ['items'], queryFn: () => api.getItems() })
   const { data: companies = [] } = useQuery({ queryKey: ['companies'], queryFn: api.getCompanies })
 
-  const filtered = useMemo(() => contracts.filter(c => {
+  // 현재 단가: 각 품목+업체 조합의 최신 계약
+  const currentContracts = useMemo(() => {
+    const map = new Map<string, Contract>()
+    contracts.forEach(c => {
+      const key = `${c.item_id}_${c.company_id}`
+      const existing = map.get(key)
+      if (!existing || c.effective_date > existing.effective_date) map.set(key, c)
+    })
+    return Array.from(map.values())
+  }, [contracts])
+
+  // 변경 이력: 전체 계약을 날짜 내림차순 + 이전 단가 계산
+  const historyContracts = useMemo(() => {
+    const sorted = [...contracts].sort((a, b) => b.effective_date.localeCompare(a.effective_date))
+    return sorted.map(c => {
+      const prev = contracts
+        .filter(x => x.item_id === c.item_id && x.company_id === c.company_id && x.effective_date < c.effective_date)
+        .sort((a, b) => b.effective_date.localeCompare(a.effective_date))[0]
+      return { ...c, prev_price: prev?.unit_price }
+    })
+  }, [contracts])
+
+  const applyFilter = <T extends Contract>(list: T[]) => list.filter(c => {
     const matchItem = !itemFilter || c.item_id === itemFilter
     const matchCompany = !companyFilter || c.company_id === companyFilter
     return matchItem && matchCompany
-  }), [contracts, itemFilter, companyFilter])
+  })
 
   const save = useMutation({
     mutationFn: (values: any) => {
@@ -278,7 +302,7 @@ function ContractsSection() {
 
   const fmt = (n: number) => n.toLocaleString()
 
-  const columns = [
+  const baseColumns = [
     { title: '품목', key: 'item', render: (_: any, r: Contract) => r.item?.name },
     { title: '업체', key: 'company', render: (_: any, r: Contract) => r.company?.name },
     { title: '단가', key: 'unit_price',
@@ -304,10 +328,43 @@ function ContractsSection() {
     },
   ]
 
+  const historyColumns = [
+    { title: '적용일', dataIndex: 'effective_date', key: 'effective_date', width: 110 },
+    { title: '품목', key: 'item', render: (_: any, r: any) => r.item?.name },
+    { title: '업체', key: 'company', render: (_: any, r: any) => r.company?.name },
+    { title: '단가', key: 'unit_price',
+      render: (_: any, r: any) => `${fmt(r.unit_price)} ${r.item?.unit || ''}` },
+    {
+      title: '변경', key: 'change',
+      render: (_: any, r: any) => {
+        if (r.prev_price == null) return <Tag color="default">최초 등록</Tag>
+        const diff = r.unit_price - r.prev_price
+        if (diff === 0) return <Typography.Text type="secondary">변동 없음</Typography.Text>
+        return (
+          <Space size={4}>
+            {diff > 0
+              ? <Tag color="red" icon={<ArrowUpOutlined />}>{fmt(Math.abs(diff))}</Tag>
+              : <Tag color="blue" icon={<ArrowDownOutlined />}>{fmt(Math.abs(diff))}</Tag>
+            }
+            <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+              {fmt(r.prev_price)} → {fmt(r.unit_price)}
+            </Typography.Text>
+          </Space>
+        )
+      },
+    },
+    { title: '비고', dataIndex: 'note', key: 'note' },
+  ]
+
+  const filteredCurrent = applyFilter(currentContracts)
+  const filteredHistory = applyFilter(historyContracts)
+
   return (
     <div style={SECTION_STYLE}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ color: '#888', fontSize: 13 }}>총 {filtered.length}건</span>
+        <span style={{ color: '#888', fontSize: 13 }}>
+          {view === 'current' ? `현재 단가 ${filteredCurrent.length}건` : `이력 ${filteredHistory.length}건`}
+        </span>
         <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => { form.resetFields(); setEditing(null); setOpen(true) }}>
           추가
         </Button>
@@ -331,9 +388,32 @@ function ContractsSection() {
         )}
       </div>
 
-      <Table
-        dataSource={filtered} columns={columns} rowKey="id"
-        loading={isLoading} size="small" pagination={false}
+      <Tabs
+        size="small"
+        activeKey={view}
+        onChange={(k) => setView(k as 'current' | 'history')}
+        items={[
+          {
+            key: 'current',
+            label: '현재 단가',
+            children: (
+              <Table
+                dataSource={filteredCurrent} columns={baseColumns} rowKey="id"
+                loading={isLoading} size="small" pagination={false}
+              />
+            ),
+          },
+          {
+            key: 'history',
+            label: '변경 이력',
+            children: (
+              <Table
+                dataSource={filteredHistory} columns={historyColumns} rowKey="id"
+                loading={isLoading} size="small" pagination={{ pageSize: 30 }}
+              />
+            ),
+          },
+        ]}
       />
 
       <Modal title={editing ? '계약단가 수정' : '계약단가 추가'} open={open}

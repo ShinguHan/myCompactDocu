@@ -88,7 +88,7 @@ class Transaction(Base):
 
     item = relationship("Item", back_populates="transactions")
     company = relationship("Company", back_populates="transactions")
-    exit_pass_links = relationship("ExitPassTransaction", back_populates="transaction")
+    exit_pass_links = relationship("ExitPassTransaction", back_populates="transaction", cascade="all, delete-orphan")
 
 
 class ExitPass(Base):
