@@ -185,18 +185,34 @@ def _copy_template_block(ws, col_offset):
 
 
 def _fix_sheet_format(path: str):
-    """openpyxl이 추가하는 baseColWidth 속성 제거 (컬럼 너비 렌더링 원본과 동일하게 유지)"""
+    """openpyxl 저장 시 변형되는 컬럼 너비(<cols>)를 템플릿 원본으로 복원하고
+    baseColWidth 속성도 제거."""
+    import re
+
+    # 템플릿에서 <cols>...</cols> 블록 추출
+    template_cols_xml = None
+    with zipfile.ZipFile(TEMPLATE_PATH, 'r') as zt:
+        for name in zt.namelist():
+            if 'xl/worksheets/sheet' in name and name.endswith('.xml'):
+                xml = zt.read(name).decode('utf-8')
+                m = re.search(r'<cols>.*?</cols>', xml, re.DOTALL)
+                if m:
+                    template_cols_xml = m.group()
+                break
+
     all_files = {}
     with zipfile.ZipFile(path, 'r') as z:
         for name in z.namelist():
             all_files[name] = z.read(name)
 
-    import re
     changed = False
     for name, data in all_files.items():
         if 'xl/worksheets/sheet' in name and name.endswith('.xml'):
             text = data.decode('utf-8')
             new_text = re.sub(r'\s*baseColWidth="\d+"', '', text)
+            # 반출증 시트(sheet1)만 <cols> 복원
+            if template_cols_xml and name.endswith('sheet1.xml'):
+                new_text = re.sub(r'<cols>.*?</cols>', template_cols_xml, new_text, flags=re.DOTALL)
             if new_text != text:
                 all_files[name] = new_text.encode('utf-8')
                 changed = True
