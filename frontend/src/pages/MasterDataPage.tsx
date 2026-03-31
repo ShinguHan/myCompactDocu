@@ -1,12 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Tabs, Table, Button, Modal, Form, Input, Select, InputNumber,
   DatePicker, Tag, Space, Popconfirm, message, Typography } from 'antd'
 import { PlusOutlined, EditOutlined, DeleteOutlined, SearchOutlined,
-  ArrowUpOutlined, ArrowDownOutlined } from '@ant-design/icons'
+  ArrowUpOutlined, ArrowDownOutlined, LinkOutlined } from '@ant-design/icons'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import dayjs from 'dayjs'
 import { api } from '../api'
-import type { Item, Company, Contract } from '../types'
+import type { Item, Company, Contract, ItemCompany } from '../types'
 
 const { Option } = Select
 
@@ -32,10 +32,45 @@ function ItemsSection() {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>()
+  const [linkItem, setLinkItem] = useState<Item | null>(null)
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [linkSelected, setLinkSelected] = useState<number[]>([])
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ['items'],
     queryFn: () => api.getItems(),
+  })
+  const { data: companies = [] } = useQuery({
+    queryKey: ['companies'],
+    queryFn: api.getCompanies,
+  })
+  const { data: linkedICs = [] } = useQuery<ItemCompany[]>({
+    queryKey: ['item-companies', linkItem?.id],
+    queryFn: () => api.getItemCompanies({ item_id: linkItem!.id }),
+    enabled: linkItem !== null,
+  })
+
+  useEffect(() => {
+    setLinkSelected(linkedICs.map(ic => ic.company_id))
+  }, [linkedICs])
+
+  const saveLinks = useMutation({
+    mutationFn: async (selectedIds: number[]) => {
+      if (!linkItem) return
+      const currentIds = linkedICs.map(ic => ic.company_id)
+      const toDelete = linkedICs.filter(ic => !selectedIds.includes(ic.company_id))
+      const toAdd = selectedIds.filter(id => !currentIds.includes(id))
+      await Promise.all(toDelete.map(ic => api.deleteItemCompany(ic.id)))
+      await Promise.all(toAdd.map((id, idx) =>
+        api.createItemCompany({ item_id: linkItem.id, company_id: id, sort_order: currentIds.length + idx + 1 })
+      ))
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['item-companies'] })
+      setLinkOpen(false); setLinkItem(null)
+      message.success('업체 연결이 저장되었습니다')
+    },
+    onError: (e: any) => message.error(e.message),
   })
 
   const filtered = useMemo(() => items.filter(item => {
@@ -71,9 +106,11 @@ function ItemsSection() {
     { title: '구분', dataIndex: 'category', key: 'category', width: 90,
       render: (v: string) => <Tag color={v === '부산물' ? 'blue' : 'orange'}>{v}</Tag> },
     {
-      title: '', key: 'actions', width: 80,
+      title: '', key: 'actions', width: 120,
       render: (_: any, record: Item) => (
         <Space size={4}>
+          <Button size="small" icon={<LinkOutlined />} title="업체 연결"
+            onClick={() => { setLinkItem(record); setLinkOpen(true) }} />
           <Button size="small" icon={<EditOutlined />} onClick={() => {
             setEditing(record); form.setFieldsValue(record); setOpen(true)
           }} />
@@ -140,6 +177,27 @@ function ItemsSection() {
             </Select>
           </Form.Item>
         </Form>
+      </Modal>
+
+      <Modal
+        title={`업체 연결 — ${linkItem?.name}`}
+        open={linkOpen}
+        onOk={() => saveLinks.mutate(linkSelected)}
+        onCancel={() => { setLinkOpen(false); setLinkItem(null) }}
+        confirmLoading={saveLinks.isPending}
+      >
+        <div style={{ marginBottom: 8, color: '#888', fontSize: 13 }}>
+          이 품목을 처리하는 업체를 선택하세요. 입출고 대장 입력 시 선택한 업체만 표시됩니다.
+        </div>
+        <Select
+          mode="multiple"
+          style={{ width: '100%' }}
+          placeholder="업체 선택"
+          value={linkSelected}
+          onChange={setLinkSelected}
+          options={companies.map(c => ({ value: c.id, label: c.name }))}
+          optionFilterProp="label"
+        />
       </Modal>
     </div>
   )

@@ -1,4 +1,6 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { Component } from 'react'
+import type { ReactNode } from 'react'
+import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Layout, Menu } from 'antd'
 import {
   BookOutlined, DatabaseOutlined, BarChartOutlined,
@@ -12,6 +14,20 @@ import MonthlyReportPage from './pages/MonthlyReportPage'
 import ExitPassPage from './pages/ExitPassPage'
 
 const { Sider, Content } = Layout
+
+class PageErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null }
+  static getDerivedStateFromError(error: Error) { return { error } }
+  render() {
+    if (this.state.error)
+      return (
+        <div style={{ padding: 40, color: '#cf1322' }}>
+          <b>페이지 오류:</b> {(this.state.error as Error).message}
+        </div>
+      )
+    return this.props.children
+  }
+}
 
 const NAV_ITEMS = [
   { key: '/ledger', icon: <BookOutlined />, label: '입출고대장' },
@@ -47,11 +63,11 @@ function AppLayout() {
         <Content style={{ padding: 24, background: '#f5f5f5', minHeight: '100vh' }}>
           <Routes>
             <Route path="/" element={<Navigate to="/ledger" replace />} />
-            <Route path="/ledger" element={<LedgerPage />} />
-            <Route path="/master" element={<MasterDataPage />} />
-            <Route path="/annual" element={<AnnualStatusPage />} />
-            <Route path="/report" element={<MonthlyReportPage />} />
-            <Route path="/exitpass" element={<ExitPassPage />} />
+            <Route path="/ledger" element={<PageErrorBoundary><LedgerPage /></PageErrorBoundary>} />
+            <Route path="/master" element={<PageErrorBoundary><MasterDataPage /></PageErrorBoundary>} />
+            <Route path="/annual" element={<PageErrorBoundary><AnnualStatusPage /></PageErrorBoundary>} />
+            <Route path="/report" element={<PageErrorBoundary><MonthlyReportPage /></PageErrorBoundary>} />
+            <Route path="/exitpass" element={<PageErrorBoundary><ExitPassPage /></PageErrorBoundary>} />
           </Routes>
         </Content>
       </Layout>
@@ -61,8 +77,8 @@ function AppLayout() {
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <AppLayout />
-    </BrowserRouter>
+    </HashRouter>
   )
 }

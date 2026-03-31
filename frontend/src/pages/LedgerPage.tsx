@@ -32,9 +32,17 @@ function BatchEntryForm({ onSaved }: { onSaved: () => void }) {
     queryFn: () => api.getItemCompanies({ item_id: selectedItemId }),
     enabled: selectedItemId !== undefined,
   })
+  const { data: itemContracts = [] } = useQuery({
+    queryKey: ['contracts', selectedItemId],
+    queryFn: () => api.getContracts({ item_id: selectedItemId }),
+    enabled: selectedItemId !== undefined,
+  })
 
   const filteredCompanies = selectedItemId !== undefined
-    ? companies.filter(c => itemCompanies.some(ic => ic.company_id === c.id))
+    ? companies.filter(c =>
+        itemCompanies.some(ic => ic.company_id === c.id) ||
+        itemContracts.some(ct => ct.company_id === c.id)
+      )
     : companies
 
   const save = useMutation({
@@ -384,8 +392,16 @@ export default function LedgerPage() {
     queryFn: () => api.getItemCompanies({ item_id: editItemId }),
     enabled: editItemId !== undefined,
   })
+  const { data: editItemContracts = [] } = useQuery({
+    queryKey: ['contracts', editItemId],
+    queryFn: () => api.getContracts({ item_id: editItemId }),
+    enabled: editItemId !== undefined,
+  })
   const editFilteredCompanies = editItemId !== undefined
-    ? companies.filter(c => editItemCompanies.some(ic => ic.company_id === c.id))
+    ? companies.filter(c =>
+        editItemCompanies.some(ic => ic.company_id === c.id) ||
+        editItemContracts.some(ct => ct.company_id === c.id)
+      )
     : companies
 
   const remove = useMutation({
