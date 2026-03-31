@@ -8,8 +8,11 @@ const client = axios.create({
 client.interceptors.response.use(
   (res) => res,
   (err) => {
-    const msg = err.response?.data?.detail || err.message || '오류가 발생했습니다'
-    console.error('[API Error]', msg)
+    const detail = err.response?.data?.detail
+    const msg = Array.isArray(detail)
+      ? detail.map((d: any) => `${d.loc?.slice(1).join('.')}: ${d.msg}`).join(', ')
+      : detail || err.message || '오류가 발생했습니다'
+    console.error('[API Error]', err.response?.status, msg)
     return Promise.reject(new Error(msg))
   }
 )

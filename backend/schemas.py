@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
-from datetime import date, datetime
+from datetime import date as date_, datetime
 from enum import Enum
 
 
@@ -87,14 +87,14 @@ class ContractCreate(BaseModel):
     company_id: int
     unit_price: float
     unit_type: UnitTypeEnum = UnitTypeEnum.per_unit
-    effective_date: date
+    effective_date: date_
     note: Optional[str] = None
 
 
 class ContractUpdate(BaseModel):
     unit_price: Optional[float] = None
     unit_type: Optional[UnitTypeEnum] = None
-    effective_date: Optional[date] = None
+    effective_date: Optional[date_] = None
     note: Optional[str] = None
 
 
@@ -105,7 +105,7 @@ class ContractRead(BaseModel):
     company_id: int
     unit_price: float
     unit_type: UnitTypeEnum
-    effective_date: date
+    effective_date: date_
     note: Optional[str]
     item: ItemRead
     company: CompanyRead
@@ -114,7 +114,7 @@ class ContractRead(BaseModel):
 # ── Transaction ───────────────────────────────────────────────────────────────
 
 class TransactionCreate(BaseModel):
-    date: date
+    date: date_
     item_id: int
     company_id: int
     quantity: float
@@ -124,7 +124,7 @@ class TransactionCreate(BaseModel):
 
 
 class TransactionUpdate(BaseModel):
-    date: Optional[date] = None
+    date: Optional[date_] = None
     item_id: Optional[int] = None
     company_id: Optional[int] = None
     quantity: Optional[float] = None
@@ -136,7 +136,7 @@ class TransactionUpdate(BaseModel):
 class TransactionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
-    date: date
+    date: date_
     item_id: int
     company_id: int
     quantity: float
@@ -154,7 +154,7 @@ class TransactionBatchCreate(BaseModel):
 # ── ExitPass ──────────────────────────────────────────────────────────────────
 
 class ExitPassCreate(BaseModel):
-    date: date
+    date: date_
     company_id: int
     transaction_ids: List[int]
 
@@ -162,7 +162,7 @@ class ExitPassCreate(BaseModel):
 class ExitPassRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
-    date: date
+    date: date_
     company_id: int
     photo_path: Optional[str]
     created_at: datetime
@@ -216,7 +216,7 @@ class MonthlySummary(BaseModel):
 
 
 class AnnualRow(BaseModel):
-    date: date
+    date: date_
     item_name: str
     company_name: str
     quantity: float
@@ -228,7 +228,7 @@ class AnnualRow(BaseModel):
 # ── Import Preview ────────────────────────────────────────────────────────────
 
 class ImportPreviewRow(BaseModel):
-    date: date
+    date: date_
     item_name: str
     company_name: str
     quantity: float

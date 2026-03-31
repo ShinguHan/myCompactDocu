@@ -1,5 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 import os
 
@@ -39,4 +40,11 @@ def health():
 # 프로덕션: React 빌드 파일 서빙
 frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 if os.path.exists(frontend_dist):
-    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="static")
+    # /assets 정적 파일 (JS/CSS)
+    app.mount("/assets", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="assets")
+
+    # index.html은 캐시 없이 제공 (SPA catch-all)
+    @app.get("/{full_path:path}")
+    def spa_fallback(full_path: str):
+        index = os.path.join(frontend_dist, "index.html")
+        return FileResponse(index, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})

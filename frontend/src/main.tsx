@@ -16,9 +16,9 @@ const queryClient = new QueryClient({
 })
 
 createRoot(document.getElementById('root')!).render(
-  <QueryClientProvider client={queryClient}>
-    <ConfigProvider locale={koKR} theme={{ token: { colorPrimary: '#1677ff' } }}>
+  <ConfigProvider locale={koKR} theme={{ token: { colorPrimary: '#1677ff' } }}>
+    <QueryClientProvider client={queryClient}>
       <App />
-    </ConfigProvider>
-  </QueryClientProvider>
+    </QueryClientProvider>
+  </ConfigProvider>
 )

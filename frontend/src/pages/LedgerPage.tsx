@@ -397,12 +397,18 @@ export default function LedgerPage() {
     queryFn: () => api.getContracts({ item_id: editItemId }),
     enabled: editItemId !== undefined,
   })
-  const editFilteredCompanies = editItemId !== undefined
-    ? companies.filter(c =>
-        editItemCompanies.some(ic => ic.company_id === c.id) ||
-        editItemContracts.some(ct => ct.company_id === c.id)
-      )
-    : companies
+  const editFilteredCompanies = (() => {
+    if (editItemId === undefined) return companies
+    const filtered = companies.filter(c =>
+      editItemCompanies.some(ic => ic.company_id === c.id) ||
+      editItemContracts.some(ct => ct.company_id === c.id)
+    )
+    // 쿼리 로딩 중이거나 연결 정보 없으면 전체 업체 표시 (기존 업체가 사라지는 것 방지)
+    if (filtered.length === 0) return companies
+    // 기존 거래의 업체가 필터 결과에 없으면 전체 표시
+    if (editingTx && !filtered.some(c => c.id === editingTx.company_id)) return companies
+    return filtered
+  })()
 
   const remove = useMutation({
     mutationFn: api.deleteTransaction,
@@ -412,8 +418,28 @@ export default function LedgerPage() {
 
   const update = useMutation({
     mutationFn: ({ id, values }: { id: number; values: any }) => {
-      const payload = { ...values, date: values.date.format('YYYY-MM-DD') }
-      payload.total_amount = payload.quantity * payload.unit_price
+      const raw = values.date
+      let dateStr: string
+      if (!raw) {
+        dateStr = editingTx!.date
+      } else if (typeof raw === 'string') {
+        dateStr = raw.substring(0, 10)
+      } else if (typeof raw.format === 'function') {
+        dateStr = raw.format('YYYY-MM-DD')
+      } else if (raw instanceof Date) {
+        dateStr = raw.toISOString().substring(0, 10)
+      } else {
+        dateStr = editingTx!.date
+      }
+      const payload = {
+        date: dateStr,
+        item_id: values.item_id,
+        company_id: values.company_id,
+        quantity: values.quantity,
+        unit_price: values.unit_price,
+        total_amount: values.quantity * values.unit_price,
+        note: values.note || null,
+      }
       return api.updateTransaction(id, payload)
     },
     onSuccess: () => {
