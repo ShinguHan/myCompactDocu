@@ -21,14 +21,14 @@ pip install -r requirements.txt -q
 if errorlevel 1 ( echo [ERROR] Failed to install Python packages & pause & exit /b 1 )
 echo       Done
 
-REM ── Output folder ────────────────────────────────────────────────────────────
+REM ── Output folders ───────────────────────────────────────────────────────────
 echo [2/2] Initializing folders...
 if not exist "output" mkdir output
+if not exist "images" mkdir images
 echo       Done
 
 echo.
 echo ===================================================
 echo   Installation complete! Run start.bat to launch.
-
 echo ===================================================
 pause

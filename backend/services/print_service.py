@@ -73,19 +73,15 @@ def generate_exit_pass(exit_pass) -> str:
         for link in exit_pass.transactions
     ]
 
-    if items:
-        _fill_item(ws, exit_pass.date, items[0], col_offset=0, company_name=exit_pass.company.name)
+    _fill_item(ws, exit_pass.date, items[0] if items else {"name": "", "quantity": None, "amount": None},
+               col_offset=0, company_name=exit_pass.company.name)
 
-        for i, item in enumerate(items[1:], start=1):
-            col_offset = i * TEMPLATE_COLS
-            _copy_template_block(ws, col_offset)
-            _fill_item(ws, exit_pass.date, item, col_offset=col_offset, company_name=exit_pass.company.name)
+    for i, item in enumerate(items[1:], start=1):
+        col_offset = i * TEMPLATE_COLS
+        _copy_template_block(ws, col_offset)
+        _fill_item(ws, exit_pass.date, item, col_offset=col_offset, company_name=exit_pass.company.name)
 
-        _set_print_layout(ws, len(items))
-    else:
-        # 품목 없어도 날짜/업체는 채우고 사진은 삽입
-        _fill_item(ws, exit_pass.date, {"name": "", "quantity": None, "amount": None},
-                   col_offset=0, company_name=exit_pass.company.name)
+    _set_print_layout(ws, max(len(items), 1))
 
     # 사진 삽입
     if exit_pass.photo_path and os.path.exists(exit_pass.photo_path):
@@ -135,8 +131,9 @@ def _get_template_area_emu() -> tuple[int, int]:
                     total_w_emu += int(w_chars * MDW_PX + 5) * EMU_PER_PX
 
                 # <row> 파싱 → row36~81 높이(pt)
+                # ' ht=' 공백 prefix로 customHeight="1" 오매칭 방지
                 row_heights: dict[int, float] = {}
-                for entry in re.finditer(r'<row\b[^>]*r="(\d+)"[^>]*ht="([^"]+)"', xml):
+                for entry in re.finditer(r'<row\b[^>]* r="(\d+)"[^>]* ht="([\d.]+)"', xml):
                     r = int(entry.group(1))
                     if IMAGE_START_ROW <= r <= TEMPLATE_ROWS:
                         row_heights[r] = float(entry.group(2))
@@ -164,20 +161,23 @@ def _insert_photo(ws, photo_path: str):
         with PILImage.open(photo_path) as pil_img:
             orig_w, orig_h = pil_img.size
 
-        # 사진 영역 크기(EMU) — 템플릿 XML 기반
+        # 사진 영역 크기(EMU) — 템플릿 XML 기반, 5% 여백
         area_w_emu, area_h_emu = _get_template_area_emu()
+        usable_w = int(area_w_emu * 0.85)
+        usable_h = int(area_h_emu * 0.90)
 
         # 비율 유지하며 영역에 맞게 스케일
-        scale = min(area_w_emu / orig_w, area_h_emu / orig_h)
+        scale = min(usable_w / orig_w, usable_h / orig_h)
         img_w_emu = int(orig_w * scale)
         img_h_emu = int(orig_h * scale)
 
-        # 가로 중앙 정렬
+        # 상하좌우 중앙 정렬
         x_emu = max(0, (area_w_emu - img_w_emu) // 2)
+        y_emu = max(0, (area_h_emu - img_h_emu) // 2)
 
         img = XLImage(photo_path)
         img.anchor = OneCellAnchor(
-            _from=AnchorMarker(col=0, colOff=x_emu, row=IMAGE_START_ROW - 1, rowOff=0),
+            _from=AnchorMarker(col=0, colOff=x_emu, row=IMAGE_START_ROW - 1, rowOff=y_emu),
             ext=XDRPositiveSize2D(img_w_emu, img_h_emu)
         )
         ws.add_image(img)

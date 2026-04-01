@@ -42,7 +42,12 @@ def list_exit_passes(
 ):
     q = db.query(models.ExitPass).options(
         joinedload(models.ExitPass.company),
-        joinedload(models.ExitPass.transactions),
+        joinedload(models.ExitPass.transactions).joinedload(
+            models.ExitPassTransaction.transaction
+        ).joinedload(models.Transaction.item),
+        joinedload(models.ExitPass.transactions).joinedload(
+            models.ExitPassTransaction.transaction
+        ).joinedload(models.Transaction.company),
     )
     if company_id:
         q = q.filter(models.ExitPass.company_id == company_id)
