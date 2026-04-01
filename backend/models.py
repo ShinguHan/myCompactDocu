@@ -85,6 +85,7 @@ class Transaction(Base):
     quantity = Column(Float, nullable=False)
     unit_price = Column(Float, nullable=False)
     total_amount = Column(Float, nullable=False)
+    vehicle_count = Column(Integer, nullable=True)   # 폐목재_MDF: 차량 대수 기반 정산
     note = Column(Text, nullable=True)
 
     item = relationship("Item", back_populates="transactions")

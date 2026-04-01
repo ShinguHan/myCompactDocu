@@ -103,6 +103,9 @@ def get_monthly_summary(year: int, month: int, db: Session) -> schemas.MonthlySu
             else:
                 wastes.append(row)
 
+    byproducts.sort(key=lambda r: (r.company_name, r.item_name))
+    wastes.sort(key=lambda r: (r.company_name, r.item_name))
+
     total_curr_by = sum(r.current_amount for r in byproducts)
     total_prev_by = sum(r.prev_amount for r in byproducts)
     total_curr_ws = sum(r.current_amount for r in wastes)
@@ -164,6 +167,39 @@ def get_monthly_summary(year: int, month: int, db: Session) -> schemas.MonthlySu
         prev_year_avg_byproduct=prev_year_avg_by,
         prev_year_avg_waste=prev_year_avg_ws,
     )
+
+
+def get_year_chart_data(year: int, db: Session) -> dict:
+    """연간 월별 차트 데이터를 한 번의 쿼리로 반환.
+
+    Returns:
+        { month(1-12): {'by_qty': float, 'by_amt': float,
+                        'ws_qty': float, 'ws_amt': float} }
+    """
+    from sqlalchemy.orm import joinedload
+
+    txs = (
+        db.query(models.Transaction)
+        .options(joinedload(models.Transaction.item))
+        .filter(extract("year", models.Transaction.date) == year)
+        .all()
+    )
+
+    result: dict = {}
+    for tx in txs:
+        m = tx.date.month
+        if m not in result:
+            result[m] = {'by_qty': 0.0, 'by_amt': 0.0,
+                         'ws_qty': 0.0, 'ws_amt': 0.0}
+        factor = tx.item.kg_per_unit or 1.0
+        if tx.item.category == models.CategoryEnum.byproduct:
+            result[m]['by_qty'] += tx.quantity * factor
+            result[m]['by_amt'] += tx.total_amount
+        else:
+            result[m]['ws_qty'] += tx.quantity * factor
+            result[m]['ws_amt'] += tx.total_amount
+
+    return result
 
 
 def get_annual_rows(

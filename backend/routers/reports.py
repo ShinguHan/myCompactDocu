@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from database import get_db
 import schemas
-from services.report_service import get_monthly_summary, get_annual_rows
+from services.report_service import get_monthly_summary, get_annual_rows, get_year_chart_data
 from services.excel_report_service import generate_monthly_report
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
@@ -27,7 +27,8 @@ def monthly_report(year: int, month: int, db: Session = Depends(get_db)):
 def monthly_report_excel(year: int, month: int, db: Session = Depends(get_db)):
     from urllib.parse import quote
     summary = get_monthly_summary(year, month, db)
-    path = generate_monthly_report(summary)
+    chart_data = get_year_chart_data(year, db)   # 연간 전체 월별 집계
+    path = generate_monthly_report(summary, trend_data=chart_data)
     filename = f"월말보고서_{year}년{month:02d}월.xlsx"
     encoded = quote(filename, safe="")
     return FileResponse(

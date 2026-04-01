@@ -43,6 +43,7 @@ export interface Transaction {
   quantity: number
   unit_price: number
   total_amount: number
+  vehicle_count: number | null
   note: string | null
   item: Item
   company: Company

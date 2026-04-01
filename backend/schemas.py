@@ -120,6 +120,7 @@ class TransactionCreate(BaseModel):
     quantity: float
     unit_price: float
     total_amount: float
+    vehicle_count: Optional[int] = None
     note: Optional[str] = None
 
 
@@ -130,6 +131,7 @@ class TransactionUpdate(BaseModel):
     quantity: Optional[float] = None
     unit_price: Optional[float] = None
     total_amount: Optional[float] = None
+    vehicle_count: Optional[int] = None
     note: Optional[str] = None
 
 
@@ -142,6 +144,7 @@ class TransactionRead(BaseModel):
     quantity: float
     unit_price: float
     total_amount: float
+    vehicle_count: Optional[int] = None
     note: Optional[str]
     item: ItemRead
     company: CompanyRead

@@ -73,18 +73,19 @@ def generate_exit_pass(exit_pass) -> str:
         for link in exit_pass.transactions
     ]
 
-    if not items:
-        wb.save(output_path)
-        return output_path
+    if items:
+        _fill_item(ws, exit_pass.date, items[0], col_offset=0, company_name=exit_pass.company.name)
 
-    _fill_item(ws, exit_pass.date, items[0], col_offset=0, company_name=exit_pass.company.name)
+        for i, item in enumerate(items[1:], start=1):
+            col_offset = i * TEMPLATE_COLS
+            _copy_template_block(ws, col_offset)
+            _fill_item(ws, exit_pass.date, item, col_offset=col_offset, company_name=exit_pass.company.name)
 
-    for i, item in enumerate(items[1:], start=1):
-        col_offset = i * TEMPLATE_COLS
-        _copy_template_block(ws, col_offset)
-        _fill_item(ws, exit_pass.date, item, col_offset=col_offset, company_name=exit_pass.company.name)
-
-    _set_print_layout(ws, len(items))
+        _set_print_layout(ws, len(items))
+    else:
+        # 품목 없어도 날짜/업체는 채우고 사진은 삽입
+        _fill_item(ws, exit_pass.date, {"name": "", "quantity": None, "amount": None},
+                   col_offset=0, company_name=exit_pass.company.name)
 
     # 사진 삽입
     if exit_pass.photo_path and os.path.exists(exit_pass.photo_path):
