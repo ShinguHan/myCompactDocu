@@ -4,11 +4,11 @@
 
 ## 기술 스택
 
-| 구분 | 기술 |
-|---|---|
-| 백엔드 | Python · FastAPI · SQLAlchemy · SQLite |
-| 프론트엔드 | React · TypeScript · Vite |
-| Excel 보고서 | openpyxl |
+| 구분         | 기술                                   |
+| ------------ | -------------------------------------- |
+| 백엔드       | Python · FastAPI · SQLAlchemy · SQLite |
+| 프론트엔드   | React · TypeScript · Vite              |
+| Excel 보고서 | openpyxl                               |
 
 ---
 
@@ -26,6 +26,7 @@ install.bat 더블클릭
 ```
 
 자동으로 진행됩니다:
+
 1. Python 가상환경 생성 및 패키지 설치
 2. React 프론트엔드 빌드
 3. 출력 폴더(output/) 생성
@@ -114,3 +115,7 @@ python migrate_from_excel.py
 ## API 문서
 
 서버 실행 후 http://localhost:8000/docs 에서 Swagger UI로 API 확인 가능
+
+프론트엔드 코드 수정 후에는 빌드 → dist 커밋을 같이 해줘야 합니다:
+cd frontend && npm run build
+cd .. && git add -f frontend/dist/ && git commit
