@@ -96,7 +96,12 @@ def generate_exit_pass(exit_pass) -> str:
 def _fill_item(ws, tx_date, item, col_offset, company_name=""):
     # C8: 관리대장 번호 (4자리 0패딩), 없으면 빈칸
     ledger = item.get("ledger_number")
-    ws.cell(row=8, column=3 + col_offset).value = f"{ledger:04d}" if ledger is not None else None
+    c8 = ws.cell(row=8, column=3 + col_offset)
+    c8.value = f"{ledger:04d}" if ledger is not None else None
+    if ledger is not None:
+        from openpyxl.styles import Font
+        c8.font = copy(c8.font)
+        c8.font = Font(size=11, name=c8.font.name, bold=c8.font.bold)
     ws.cell(row=DATE_ROW, column=DATE_COL + col_offset).value = tx_date
     ws.cell(row=COMPANY_ROW, column=COMPANY_COL + col_offset).value = company_name
     ws.cell(row=ITEM_NAME_ROW, column=ITEM_NAME_COL + col_offset).value = item["name"]
