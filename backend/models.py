@@ -87,6 +87,7 @@ class Transaction(Base):
     total_amount = Column(Float, nullable=False)
     vehicle_count = Column(Integer, nullable=True)   # 폐목재_MDF: 차량 대수 기반 정산
     note = Column(Text, nullable=True)
+    ledger_number = Column(Integer, nullable=True)   # 입출고 관리대장 번호
 
     item = relationship("Item", back_populates="transactions")
     company = relationship("Company", back_populates="transactions")

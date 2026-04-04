@@ -460,7 +460,7 @@ export default function LedgerPage() {
         ? vehicleCount * values.unit_price
         : values.quantity * values.unit_price
       const totalAmount = editIsWaste ? -Math.abs(rawAmount) : rawAmount
-      const payload = {
+      const payload: Record<string, any> = {
         date: dateStr,
         item_id: values.item_id,
         company_id: values.company_id,
@@ -470,6 +470,7 @@ export default function LedgerPage() {
         vehicle_count: vehicleCount,
         note: values.note || null,
       }
+      if (values.ledger_number != null) payload.ledger_number = values.ledger_number
       return api.updateTransaction(id, payload)
     },
     onSuccess: () => {
@@ -659,6 +660,10 @@ export default function LedgerPage() {
           )}
           <Form.Item name="note" label="비고">
             <Input />
+          </Form.Item>
+          <Form.Item name="ledger_number" label="관리대장 번호"
+            extra="입력 시 이후 거래에 자동 증가 적용">
+            <InputNumber style={{ width: '100%' }} min={1} precision={0} placeholder="예: 1 → 0001" />
           </Form.Item>
         </Form>
       </Modal>

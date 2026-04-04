@@ -103,8 +103,26 @@ def update_transaction(tx_id: int, body: schemas.TransactionUpdate, db: Session 
     tx = db.query(models.Transaction).filter(models.Transaction.id == tx_id).first()
     if not tx:
         raise HTTPException(status_code=404, detail="거래를 찾을 수 없습니다")
+
+    new_ledger = body.ledger_number  # None이면 변경 없음
     for k, v in body.model_dump(exclude_none=True).items():
         setattr(tx, k, v)
+
+    # 관리대장 번호가 지정된 경우: 이후 거래에 자동 증가 적용
+    if new_ledger is not None:
+        subsequent = (
+            db.query(models.Transaction)
+            .filter(
+                (models.Transaction.date > tx.date) |
+                (and_(models.Transaction.date == tx.date,
+                      models.Transaction.id > tx_id))
+            )
+            .order_by(models.Transaction.date.asc(), models.Transaction.id.asc())
+            .all()
+        )
+        for i, t in enumerate(subsequent, start=1):
+            t.ledger_number = new_ledger + i
+
     db.commit()
     return _with_relations(db.query(models.Transaction)).filter(models.Transaction.id == tx_id).first()
 

@@ -133,6 +133,7 @@ class TransactionUpdate(BaseModel):
     total_amount: Optional[float] = None
     vehicle_count: Optional[int] = None
     note: Optional[str] = None
+    ledger_number: Optional[int] = None
 
 
 class TransactionRead(BaseModel):
@@ -146,6 +147,7 @@ class TransactionRead(BaseModel):
     total_amount: float
     vehicle_count: Optional[int] = None
     note: Optional[str]
+    ledger_number: Optional[int] = None
     item: ItemRead
     company: CompanyRead
 

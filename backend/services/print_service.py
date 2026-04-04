@@ -69,6 +69,7 @@ def generate_exit_pass(exit_pass) -> str:
             "name": link.transaction.item.report_name or link.transaction.item.name,
             "quantity": link.transaction.quantity,
             "amount": link.transaction.total_amount,
+            "ledger_number": link.transaction.ledger_number,
         }
         for link in exit_pass.transactions
     ]
@@ -93,7 +94,9 @@ def generate_exit_pass(exit_pass) -> str:
 
 
 def _fill_item(ws, tx_date, item, col_offset, company_name=""):
-    ws.cell(row=8, column=3 + col_offset).value = None
+    # C8: 관리대장 번호 (4자리 0패딩), 없으면 빈칸
+    ledger = item.get("ledger_number")
+    ws.cell(row=8, column=3 + col_offset).value = f"{ledger:04d}" if ledger is not None else None
     ws.cell(row=DATE_ROW, column=DATE_COL + col_offset).value = tx_date
     ws.cell(row=COMPANY_ROW, column=COMPANY_COL + col_offset).value = company_name
     ws.cell(row=ITEM_NAME_ROW, column=ITEM_NAME_COL + col_offset).value = item["name"]

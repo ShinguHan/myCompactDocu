@@ -45,6 +45,7 @@ export interface Transaction {
   total_amount: number
   vehicle_count: number | null
   note: string | null
+  ledger_number: number | null
   item: Item
   company: Company
 }
