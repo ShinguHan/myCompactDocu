@@ -27,7 +27,8 @@ def monthly_report(year: int, month: int, db: Session = Depends(get_db)):
 def monthly_report_excel(year: int, month: int, db: Session = Depends(get_db)):
     from urllib.parse import quote
     summary = get_monthly_summary(year, month, db)
-    chart_data = get_year_chart_data(year, db)   # 연간 전체 월별 집계
+    # 리포트 기준월까지만 포함 (당월 이후 데이터 그래프 제외)
+    chart_data = {m: d for m, d in get_year_chart_data(year, db).items() if m <= month}
     path = generate_monthly_report(summary, trend_data=chart_data)
     filename = f"월말보고서_{year}년{month:02d}월.xlsx"
     encoded = quote(filename, safe="")
