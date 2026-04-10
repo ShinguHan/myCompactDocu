@@ -19,6 +19,10 @@ COMPANY_COL = 1      # A
 ITEM_NAME_ROW = 18
 ITEM_NAME_COL = 1    # A
 ITEM_QTY_COL = 12    # L
+ITEM_UNIT_COL = 10   # J = 단위
+DATE_YEAR_ROW = 30   # E30: "2025년 월 일 시 분" 하드코딩 텍스트
+DATE_YEAR_COL = 5    # E
+MAX_ITEMS = 12       # 행 18~29, 품목 최대 12개
 IMAGE_START_ROW = 36
 
 
@@ -56,6 +60,7 @@ def _copy_template_strip_drawings(src: str, dst: str):
 def generate_exit_pass(exit_pass) -> str:
     """
     ExitPass ORM 객체를 받아 반출증 Excel 파일 생성, 파일 경로 반환.
+    선택된 품목을 하나의 반출증 페이지(행 18~29)에 모두 기입.
     """
     output_path = os.path.join(
         OUTPUT_DIR, f"반출증_{exit_pass.date}_{exit_pass.company.name}.xlsx"
@@ -67,6 +72,7 @@ def generate_exit_pass(exit_pass) -> str:
     items = [
         {
             "name": link.transaction.item.report_name or link.transaction.item.name,
+            "unit": link.transaction.item.unit,
             "quantity": link.transaction.quantity,
             "amount": link.transaction.total_amount,
             "ledger_number": link.transaction.ledger_number,
@@ -74,15 +80,24 @@ def generate_exit_pass(exit_pass) -> str:
         for link in exit_pass.transactions
     ]
 
-    _fill_item(ws, exit_pass.date, items[0] if items else {"name": "", "quantity": None, "amount": None},
-               col_offset=0, company_name=exit_pass.company.name)
+    # 관리대장 번호: 거래에 있으면 첫 번째 값 사용, 없으면 반출증 ID 사용 (항상 출력)
+    ledger = next(
+        (item["ledger_number"] for item in items if item.get("ledger_number") is not None),
+        exit_pass.id,
+    )
 
-    for i, item in enumerate(items[1:], start=1):
-        col_offset = i * TEMPLATE_COLS
-        _copy_template_block(ws, col_offset)
-        _fill_item(ws, exit_pass.date, item, col_offset=col_offset, company_name=exit_pass.company.name)
+    _fill_header(ws, exit_pass.date, exit_pass.company.name, ledger)
 
-    _set_print_layout(ws, max(len(items), 1))
+    for i, item in enumerate(items[:MAX_ITEMS]):
+        row = ITEM_NAME_ROW + i
+        ws.cell(row=row, column=ITEM_NAME_COL).value = item["name"]
+        # "원/kg" → "kg", "원/EA" → "EA" 형식 변환
+        raw_unit = item.get("unit") or ""
+        physical_unit = raw_unit.split("/")[-1] if "/" in raw_unit else raw_unit
+        ws.cell(row=row, column=ITEM_UNIT_COL).value = physical_unit
+        ws.cell(row=row, column=ITEM_QTY_COL).value = item["quantity"]
+
+    _set_print_layout(ws, 1)
 
     # 사진 삽입
     if exit_pass.photo_path and os.path.exists(exit_pass.photo_path):
@@ -93,19 +108,27 @@ def generate_exit_pass(exit_pass) -> str:
     return output_path
 
 
-def _fill_item(ws, tx_date, item, col_offset, company_name=""):
-    # C8: 관리대장 번호 (4자리 0패딩), 없으면 빈칸
-    ledger = item.get("ledger_number")
-    c8 = ws.cell(row=8, column=3 + col_offset)
-    c8.value = f"{ledger:04d}" if ledger is not None else None
-    if ledger is not None:
-        from openpyxl.styles import Font
-        c8.font = copy(c8.font)
-        c8.font = Font(size=11, name=c8.font.name, bold=c8.font.bold)
-    ws.cell(row=DATE_ROW, column=DATE_COL + col_offset).value = tx_date
-    ws.cell(row=COMPANY_ROW, column=COMPANY_COL + col_offset).value = company_name
-    ws.cell(row=ITEM_NAME_ROW, column=ITEM_NAME_COL + col_offset).value = item["name"]
-    ws.cell(row=ITEM_NAME_ROW, column=ITEM_QTY_COL + col_offset).value = item["quantity"]
+def _fill_header(ws, tx_date, company_name, ledger):
+    """헤더 영역(C8 관리대장번호, K10 반출일, A12 업체명, E30 반출년월일) 채우기."""
+    from openpyxl.styles import Font
+
+    # C8: 관리대장 번호 (4자리 0패딩, 항상 출력)
+    c8 = ws.cell(row=8, column=3)
+    c8.value = f"{int(ledger):04d}"
+    c8.font = Font(size=11, name=c8.font.name, bold=c8.font.bold)
+
+    # K10: 반출 날짜
+    ws.cell(row=DATE_ROW, column=DATE_COL).value = tx_date
+
+    # A12: 업체명
+    ws.cell(row=COMPANY_ROW, column=COMPANY_COL).value = company_name
+
+    # E30: "2 0 2 6 년     월    일    시    분" 형식으로 연도 갱신
+    year = tx_date.year if hasattr(tx_date, 'year') else int(str(tx_date)[:4])
+    year_spaced = ' '.join(str(year))
+    ws.cell(row=DATE_YEAR_ROW, column=DATE_YEAR_COL).value = (
+        f"{year_spaced} 년     월    일    시    분"
+    )
 
 
 def _get_template_area_emu() -> tuple[int, int]:
