@@ -60,6 +60,7 @@ export interface ExitPassTransaction {
 
 export interface ExitPass {
   id: number
+  number: number
   date: string
   company_id: number
   photo_path: string | null

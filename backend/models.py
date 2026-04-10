@@ -100,6 +100,7 @@ class ExitPass(Base):
     __tablename__ = "exit_passes"
 
     id = Column(Integer, primary_key=True, index=True)
+    number = Column(Integer, nullable=False, unique=True, index=True)
     date = Column(Date, nullable=False)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
     photo_path = Column(String, nullable=True)      # 업로드한 반출 사진

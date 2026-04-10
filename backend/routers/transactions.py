@@ -19,6 +19,16 @@ def _with_relations(q):
     )
 
 
+def _next_ledger_number(db: Session) -> int:
+    latest = (
+        db.query(models.Transaction)
+        .filter(models.Transaction.ledger_number.is_not(None))
+        .order_by(models.Transaction.ledger_number.desc(), models.Transaction.id.desc())
+        .first()
+    )
+    return (latest.ledger_number if latest and latest.ledger_number is not None else 0) + 1
+
+
 @router.get("", response_model=List[schemas.TransactionRead])
 def list_transactions(
     start: Optional[date] = None,
@@ -80,7 +90,10 @@ def list_grouped(
 
 @router.post("", response_model=schemas.TransactionRead, status_code=201)
 def create_transaction(body: schemas.TransactionCreate, db: Session = Depends(get_db)):
-    tx = models.Transaction(**body.model_dump())
+    data = body.model_dump()
+    if data.get("ledger_number") is None:
+        data["ledger_number"] = _next_ledger_number(db)
+    tx = models.Transaction(**data)
     db.add(tx)
     db.commit()
     db.refresh(tx)
@@ -89,7 +102,14 @@ def create_transaction(body: schemas.TransactionCreate, db: Session = Depends(ge
 
 @router.post("/batch", response_model=List[schemas.TransactionRead], status_code=201)
 def batch_create(body: schemas.TransactionBatchCreate, db: Session = Depends(get_db)):
-    txs = [models.Transaction(**t.model_dump()) for t in body.transactions]
+    next_ledger = _next_ledger_number(db)
+    txs = []
+    for t in body.transactions:
+        data = t.model_dump()
+        if data.get("ledger_number") is None:
+            data["ledger_number"] = next_ledger
+            next_ledger += 1
+        txs.append(models.Transaction(**data))
     db.add_all(txs)
     db.commit()
     ids = [tx.id for tx in txs]

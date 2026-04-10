@@ -15,6 +15,7 @@ import PhotoEditor from '../components/PhotoEditor'
 const { Text } = Typography
 
 const fmt = (n: number) => n.toLocaleString()
+const compareText = (a?: string | null, b?: string | null) => (a || '').localeCompare(b || '', 'ko')
 
 function CreateExitPassModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const qc = useQueryClient()
@@ -234,17 +235,40 @@ export default function ExitPassPage() {
   }
 
   const columns = [
-    { title: '반출일', dataIndex: 'date', key: 'date', width: 110 },
-    { title: '업체', key: 'company', render: (_: any, r: ExitPass) => r.company?.name },
+    {
+      title: '반출증 번호',
+      dataIndex: 'number',
+      key: 'number',
+      width: 120,
+      sorter: (a: ExitPass, b: ExitPass) => a.number - b.number,
+      render: (v: number) => String(v).padStart(4, '0'),
+    },
+    {
+      title: '반출일',
+      dataIndex: 'date',
+      key: 'date',
+      width: 110,
+      sorter: (a: ExitPass, b: ExitPass) => a.date.localeCompare(b.date),
+    },
+    {
+      title: '업체',
+      key: 'company',
+      sorter: (a: ExitPass, b: ExitPass) => compareText(a.company?.name, b.company?.name),
+      render: (_: any, r: ExitPass) => r.company?.name,
+    },
     { title: '품목 수', key: 'items',
+      sorter: (a: ExitPass, b: ExitPass) => (a.transactions?.length || 0) - (b.transactions?.length || 0),
       render: (_: any, r: ExitPass) => `${r.transactions?.length || 0}건` },
     { title: '사진', key: 'photo',
+      sorter: (a: ExitPass, b: ExitPass) => Number(!!a.photo_path) - Number(!!b.photo_path),
       render: (_: any, r: ExitPass) =>
         r.photo_path
           ? <Tag color="green">있음</Tag>
           : <Tag color="default">없음</Tag>
     },
     { title: '생성일시', dataIndex: 'created_at', key: 'created_at',
+      defaultSortOrder: 'descend' as const,
+      sorter: (a: ExitPass, b: ExitPass) => dayjs(a.created_at).valueOf() - dayjs(b.created_at).valueOf(),
       render: (v: string) => dayjs(v).format('MM/DD HH:mm') },
     {
       title: '', key: 'actions', width: 160,

@@ -6,11 +6,13 @@ import os
 
 from database import engine, Base
 import models  # noqa: F401 - triggers table creation
+from db_init import ensure_schema
 
 from routers import items, companies, item_companies, contracts, transactions, reports, exit_passes
 
 # DB 테이블 생성 (없는 경우에만)
 Base.metadata.create_all(bind=engine)
+ensure_schema(engine)
 
 app = FastAPI(title="Cute Docu Shelf API", version="2.0.0")
 

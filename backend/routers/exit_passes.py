@@ -33,6 +33,15 @@ def _load_full(exit_pass_id: int, db: Session):
     )
 
 
+def _next_exit_pass_number(db: Session) -> int:
+    latest = (
+        db.query(models.ExitPass)
+        .order_by(models.ExitPass.number.desc(), models.ExitPass.id.desc())
+        .first()
+    )
+    return (latest.number if latest else 0) + 1
+
+
 @router.get("", response_model=List[schemas.ExitPassRead])
 def list_exit_passes(
     company_id: Optional[int] = None,
@@ -55,7 +64,7 @@ def list_exit_passes(
         q = q.filter(models.ExitPass.date >= start)
     if end:
         q = q.filter(models.ExitPass.date <= end)
-    return q.order_by(models.ExitPass.date.desc()).all()
+    return q.order_by(models.ExitPass.created_at.desc(), models.ExitPass.id.desc()).all()
 
 
 @router.get("/{ep_id}", response_model=schemas.ExitPassRead)
@@ -68,7 +77,11 @@ def get_exit_pass(ep_id: int, db: Session = Depends(get_db)):
 
 @router.post("", response_model=schemas.ExitPassRead, status_code=201)
 def create_exit_pass(body: schemas.ExitPassCreate, db: Session = Depends(get_db)):
-    ep = models.ExitPass(date=body.date, company_id=body.company_id)
+    ep = models.ExitPass(
+        number=_next_exit_pass_number(db),
+        date=body.date,
+        company_id=body.company_id,
+    )
     db.add(ep)
     db.flush()
 

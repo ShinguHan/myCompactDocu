@@ -1,4 +1,4 @@
-import { Component } from 'react'
+import { Component, Suspense, lazy } from 'react'
 import type { ReactNode } from 'react'
 import { createBrowserRouter, RouterProvider, NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
@@ -6,11 +6,11 @@ import {
   FileTextOutlined, PrinterOutlined,
 } from '@ant-design/icons'
 
-import LedgerPage from './pages/LedgerPage'
-import MasterDataPage from './pages/MasterDataPage'
-import AnnualStatusPage from './pages/AnnualStatusPage'
-import MonthlyReportPage from './pages/MonthlyReportPage'
-import ExitPassPage from './pages/ExitPassPage'
+const LedgerPage = lazy(() => import('./pages/LedgerPage'))
+const MasterDataPage = lazy(() => import('./pages/MasterDataPage'))
+const AnnualStatusPage = lazy(() => import('./pages/AnnualStatusPage'))
+const MonthlyReportPage = lazy(() => import('./pages/MonthlyReportPage'))
+const ExitPassPage = lazy(() => import('./pages/ExitPassPage'))
 
 class PageErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null }
@@ -73,16 +73,34 @@ function AppLayout() {
   )
 }
 
+function PageFallback() {
+  return (
+    <div style={{ padding: 40, color: '#666' }}>
+      페이지를 불러오는 중입니다...
+    </div>
+  )
+}
+
+function withPageBoundary(node: ReactNode) {
+  return (
+    <PageErrorBoundary>
+      <Suspense fallback={<PageFallback />}>
+        {node}
+      </Suspense>
+    </PageErrorBoundary>
+  )
+}
+
 const router = createBrowserRouter([{
     path: '/',
     element: <AppLayout />,
     children: [
-      { index: true, element: <LedgerPage /> },
-      { path: 'ledger',  element: <PageErrorBoundary><LedgerPage /></PageErrorBoundary> },
-      { path: 'master',  element: <PageErrorBoundary><MasterDataPage /></PageErrorBoundary> },
-      { path: 'annual',  element: <PageErrorBoundary><AnnualStatusPage /></PageErrorBoundary> },
-      { path: 'report',  element: <PageErrorBoundary><MonthlyReportPage /></PageErrorBoundary> },
-      { path: 'exitpass',element: <PageErrorBoundary><ExitPassPage /></PageErrorBoundary> },
+      { index: true, element: withPageBoundary(<LedgerPage />) },
+      { path: 'ledger',  element: withPageBoundary(<LedgerPage />) },
+      { path: 'master',  element: withPageBoundary(<MasterDataPage />) },
+      { path: 'annual',  element: withPageBoundary(<AnnualStatusPage />) },
+      { path: 'report',  element: withPageBoundary(<MonthlyReportPage />) },
+      { path: 'exitpass',element: withPageBoundary(<ExitPassPage />) },
     ],
   },
 ])

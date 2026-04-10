@@ -78,6 +78,7 @@ function BatchEntryForm({ onSaved }: { onSaved: () => void }) {
         quantity: qty, unit_price: unitPrice, total_amount: totalAmount,
         vehicle_count: vehicleCount,
         note: values.note || null,
+        ledger_number: null,
         _item_name: items.find(i => i.id === values.item_id)?.name,
         _company_name: companies.find(c => c.id === values.company_id)?.name,
       }])
@@ -153,6 +154,8 @@ function BatchEntryForm({ onSaved }: { onSaved: () => void }) {
             dataSource={rows.map((r, i) => ({ ...r, key: i }))}
             columns={[
               { title: '일자', dataIndex: 'date', width: 100 },
+              { title: '관리대장 번호', dataIndex: 'ledger_number', width: 110,
+                render: (v: number | null) => v != null ? String(v).padStart(4, '0') : '자동' },
               { title: '품목', dataIndex: '_item_name' },
               { title: '업체', dataIndex: '_company_name' },
               { title: '처리량', dataIndex: 'quantity', align: 'right' as const },
@@ -503,6 +506,9 @@ export default function LedgerPage() {
   const columns = [
     { title: '일자', dataIndex: 'date', key: 'date', width: 100,
       sorter: (a: Transaction, b: Transaction) => a.date.localeCompare(b.date) },
+    { title: '관리대장 번호', dataIndex: 'ledger_number', key: 'ledger_number', width: 110,
+      sorter: (a: Transaction, b: Transaction) => (a.ledger_number ?? 0) - (b.ledger_number ?? 0),
+      render: (v: number | null) => v != null ? String(v).padStart(4, '0') : '' },
     { title: '품목', key: 'item', render: (_: any, r: Transaction) => r.item?.name },
     { title: '업체', key: 'company', render: (_: any, r: Transaction) => r.company?.name },
     { title: '처리량', dataIndex: 'quantity', key: 'quantity', align: 'right' as const },

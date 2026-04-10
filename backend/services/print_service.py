@@ -84,11 +84,8 @@ def generate_exit_pass(exit_pass) -> str:
         for link in exit_pass.transactions
     ]
 
-    # 관리대장 번호: 거래에 있으면 첫 번째 값 사용, 없으면 반출증 ID 사용 (항상 출력)
-    ledger = next(
-        (item["ledger_number"] for item in items if item.get("ledger_number") is not None),
-        exit_pass.id,
-    )
+    # 반출증 번호는 생성 시 저장된 번호를 사용한다.
+    ledger = exit_pass.number
 
     _fill_header(ws, exit_pass.date, exit_pass.company.name, ledger)
 

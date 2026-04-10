@@ -125,6 +125,7 @@ class TransactionCreate(BaseModel):
     total_amount: float
     vehicle_count: Optional[int] = None
     note: Optional[str] = None
+    ledger_number: Optional[int] = None
 
 
 class TransactionUpdate(BaseModel):
@@ -170,6 +171,7 @@ class ExitPassCreate(BaseModel):
 class ExitPassRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    number: int
     date: date_
     company_id: int
     photo_path: Optional[str]
