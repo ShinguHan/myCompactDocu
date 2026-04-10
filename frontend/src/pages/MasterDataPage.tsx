@@ -102,6 +102,8 @@ function ItemsSection() {
     { title: '품목명', dataIndex: 'name', key: 'name' },
     { title: '보고서 표기명', dataIndex: 'report_name', key: 'report_name',
       render: (v: string | null) => v || <span style={{ color: '#bbb' }}>-</span> },
+    { title: '규격', dataIndex: 'spec', key: 'spec', width: 100,
+      render: (v: string | null) => v || <span style={{ color: '#bbb' }}>-</span> },
     { title: '단위', dataIndex: 'unit', key: 'unit', width: 90 },
     { title: '구분', dataIndex: 'category', key: 'category', width: 90,
       render: (v: string) => <Tag color={v === '부산물' ? 'blue' : 'orange'}>{v}</Tag> },
@@ -162,6 +164,9 @@ function ItemsSection() {
           </Form.Item>
           <Form.Item name="report_name" label="보고서 표기명">
             <Input placeholder="다를 경우 입력 (예: PE SCRAP)" />
+          </Form.Item>
+          <Form.Item name="spec" label="규격 (반출증 출력용)">
+            <Input placeholder="예: 100L, 혼합, STS304 등 (없으면 비워도 됨)" />
           </Form.Item>
           <Form.Item name="unit" label="단위" initialValue="원/kg" rules={[{ required: true }]}>
             <Select>

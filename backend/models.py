@@ -25,6 +25,7 @@ class Item(Base):
     name = Column(String, unique=True, nullable=False)          # 입출고대장 표기명
     report_name = Column(String, nullable=True)                 # 보고서 표기명 (다를 경우)
     unit = Column(String, nullable=False, default="원/kg")      # 원/kg, 원/EA, 원/대
+    spec = Column(String, nullable=True)                        # 반출증 규격 표기 (예: 100L, 혼합 등)
     category = Column(Enum(CategoryEnum), nullable=False)
     kg_per_unit = Column(Float, nullable=True)                  # EA→kg 환산계수 (예: 200L드럼=20)
 

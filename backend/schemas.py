@@ -20,6 +20,7 @@ class ItemCreate(BaseModel):
     name: str
     report_name: Optional[str] = None
     unit: str = "원/kg"
+    spec: Optional[str] = None
     category: CategoryEnum
     kg_per_unit: Optional[float] = None
 
@@ -28,6 +29,7 @@ class ItemUpdate(BaseModel):
     name: Optional[str] = None
     report_name: Optional[str] = None
     unit: Optional[str] = None
+    spec: Optional[str] = None
     category: Optional[CategoryEnum] = None
     kg_per_unit: Optional[float] = None
 
@@ -38,6 +40,7 @@ class ItemRead(BaseModel):
     name: str
     report_name: Optional[str]
     unit: str
+    spec: Optional[str] = None
     category: CategoryEnum
     kg_per_unit: Optional[float] = None
 

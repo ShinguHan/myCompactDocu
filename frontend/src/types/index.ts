@@ -6,6 +6,7 @@ export interface Item {
   name: string
   report_name: string | null
   unit: string
+  spec: string | null
   category: Category
 }
 

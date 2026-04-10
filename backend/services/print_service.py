@@ -20,9 +20,12 @@ ITEM_NAME_ROW = 18
 ITEM_NAME_COL = 1    # A
 ITEM_QTY_COL = 12    # L
 ITEM_UNIT_COL = 10   # J = 단위
+ITEM_SPEC_COL = 5    # E = 규격
+TOTAL_ROW = 29       # 합계 행
+TOTAL_QTY_COL = 12   # L = 합계 수량
 DATE_YEAR_ROW = 30   # E30: "2025년 월 일 시 분" 하드코딩 텍스트
 DATE_YEAR_COL = 5    # E
-MAX_ITEMS = 12       # 행 18~29, 품목 최대 12개
+MAX_ITEMS = 11       # 행 18~28 (row 29 = 합계)
 IMAGE_START_ROW = 36
 
 
@@ -73,6 +76,7 @@ def generate_exit_pass(exit_pass) -> str:
         {
             "name": link.transaction.item.report_name or link.transaction.item.name,
             "unit": link.transaction.item.unit,
+            "spec": link.transaction.item.spec,
             "quantity": link.transaction.quantity,
             "amount": link.transaction.total_amount,
             "ledger_number": link.transaction.ledger_number,
@@ -88,14 +92,22 @@ def generate_exit_pass(exit_pass) -> str:
 
     _fill_header(ws, exit_pass.date, exit_pass.company.name, ledger)
 
+    total_qty = 0
     for i, item in enumerate(items[:MAX_ITEMS]):
         row = ITEM_NAME_ROW + i
         ws.cell(row=row, column=ITEM_NAME_COL).value = item["name"]
+        ws.cell(row=row, column=ITEM_SPEC_COL).value = item.get("spec") or None
         # "원/kg" → "kg", "원/EA" → "EA" 형식 변환
         raw_unit = item.get("unit") or ""
         physical_unit = raw_unit.split("/")[-1] if "/" in raw_unit else raw_unit
         ws.cell(row=row, column=ITEM_UNIT_COL).value = physical_unit
-        ws.cell(row=row, column=ITEM_QTY_COL).value = item["quantity"]
+        qty = item["quantity"]
+        ws.cell(row=row, column=ITEM_QTY_COL).value = qty
+        if qty is not None:
+            total_qty += qty
+
+    # 합계 행 (row 29) 수량 직접 기입
+    ws.cell(row=TOTAL_ROW, column=TOTAL_QTY_COL).value = total_qty
 
     _set_print_layout(ws, 1)
 
