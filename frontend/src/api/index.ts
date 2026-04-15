@@ -4,6 +4,8 @@ import type {
   ExitPass, MonthlySummary, AnnualRow, ImportPreview, MonthlyTrendItem,
 } from '../types'
 
+type TransactionWrite = Omit<Transaction, 'id' | 'item' | 'company'>
+
 // ── Items ──────────────────────────────────────────────────────────────────
 
 export const api = {
@@ -57,11 +59,11 @@ export const api = {
     client.get<Transaction[]>('/transactions', { params }).then(r => r.data),
   getGroupedTransactions: (params?: { start?: string; end?: string }) =>
     client.get<any[]>('/transactions/grouped', { params }).then(r => r.data),
-  createTransaction: (data: Omit<Transaction, 'id' | 'item' | 'company'>) =>
+  createTransaction: (data: TransactionWrite) =>
     client.post<Transaction>('/transactions', data).then(r => r.data),
-  batchCreateTransactions: (transactions: Omit<Transaction, 'id' | 'item' | 'company'>[]) =>
+  batchCreateTransactions: (transactions: TransactionWrite[]) =>
     client.post<Transaction[]>('/transactions/batch', { transactions }).then(r => r.data),
-  updateTransaction: (id: number, data: Partial<Omit<Transaction, 'id' | 'item' | 'company'>>) =>
+  updateTransaction: (id: number, data: Partial<TransactionWrite>) =>
     client.put<Transaction>(`/transactions/${id}`, data).then(r => r.data),
   deleteTransaction: (id: number) =>
     client.delete(`/transactions/${id}`),
@@ -72,7 +74,7 @@ export const api = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }).then(r => r.data)
   },
-  importConfirm: (rows: Omit<Transaction, 'id' | 'item' | 'company'>[]) =>
+  importConfirm: (rows: TransactionWrite[]) =>
     client.post<Transaction[]>('/transactions/import/confirm', rows).then(r => r.data),
 
   // Reports

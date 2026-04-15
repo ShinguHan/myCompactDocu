@@ -172,6 +172,7 @@ class ExitPassRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     number: int
+    print_number: int
     date: date_
     company_id: int
     photo_path: Optional[str]

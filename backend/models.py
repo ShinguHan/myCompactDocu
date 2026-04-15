@@ -109,6 +109,15 @@ class ExitPass(Base):
     company = relationship("Company", back_populates="exit_passes")
     transactions = relationship("ExitPassTransaction", back_populates="exit_pass", cascade="all, delete-orphan")
 
+    @property
+    def print_number(self):
+        ledger_numbers = [
+            link.transaction.ledger_number
+            for link in self.transactions
+            if link.transaction and link.transaction.ledger_number is not None
+        ]
+        return min(ledger_numbers) if ledger_numbers else self.number
+
 
 class ExitPassTransaction(Base):
     """반출증-거래 연결"""

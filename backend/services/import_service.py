@@ -87,8 +87,20 @@ def confirm_import(rows: List[schemas.TransactionCreate], db: Session) -> List[m
     from sqlalchemy.orm import joinedload
 
     saved = []
+    latest = (
+        db.query(models.Transaction)
+        .filter(models.Transaction.ledger_number.is_not(None))
+        .order_by(models.Transaction.ledger_number.desc(), models.Transaction.id.desc())
+        .first()
+    )
+    next_ledger = (latest.ledger_number if latest and latest.ledger_number is not None else 0) + 1
+
     for r in rows:
-        tx = models.Transaction(**r.model_dump())
+        data = r.model_dump()
+        if data.get("ledger_number") is None:
+            data["ledger_number"] = next_ledger
+            next_ledger += 1
+        tx = models.Transaction(**data)
         db.add(tx)
         saved.append(tx)
     db.commit()

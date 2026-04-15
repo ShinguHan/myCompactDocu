@@ -293,6 +293,7 @@ function QuickExitPassModal({
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['exit-passes'] })
+      qc.invalidateQueries({ queryKey: ['transactions'] })
       setDone(true)
     },
     onError: (e: any) => message.error(e.message),

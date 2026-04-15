@@ -29,6 +29,14 @@ def _next_ledger_number(db: Session) -> int:
     return (latest.ledger_number if latest and latest.ledger_number is not None else 0) + 1
 
 
+def _assign_missing_ledger_numbers(rows, db: Session) -> None:
+    next_ledger = _next_ledger_number(db)
+    for row in rows:
+        if row.ledger_number is None:
+            row.ledger_number = next_ledger
+            next_ledger += 1
+
+
 @router.get("", response_model=List[schemas.TransactionRead])
 def list_transactions(
     start: Optional[date] = None,
@@ -102,14 +110,11 @@ def create_transaction(body: schemas.TransactionCreate, db: Session = Depends(ge
 
 @router.post("/batch", response_model=List[schemas.TransactionRead], status_code=201)
 def batch_create(body: schemas.TransactionBatchCreate, db: Session = Depends(get_db)):
-    next_ledger = _next_ledger_number(db)
     txs = []
     for t in body.transactions:
         data = t.model_dump()
-        if data.get("ledger_number") is None:
-            data["ledger_number"] = next_ledger
-            next_ledger += 1
         txs.append(models.Transaction(**data))
+    _assign_missing_ledger_numbers(txs, db)
     db.add_all(txs)
     db.commit()
     ids = [tx.id for tx in txs]

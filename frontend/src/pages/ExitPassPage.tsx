@@ -44,6 +44,7 @@ function CreateExitPassModal({ open, onClose }: { open: boolean; onClose: () => 
         await api.uploadExitPassPhoto(ep.id, photo)
       }
       qc.invalidateQueries({ queryKey: ['exit-passes'] })
+      qc.invalidateQueries({ queryKey: ['transactions'] })
       setStep(2)
     },
     onError: (e: any) => message.error(e.message),
@@ -236,11 +237,11 @@ export default function ExitPassPage() {
 
   const columns = [
     {
-      title: '반출증 번호',
-      dataIndex: 'number',
-      key: 'number',
+      title: '관리대장 번호',
+      dataIndex: 'print_number',
+      key: 'print_number',
       width: 120,
-      sorter: (a: ExitPass, b: ExitPass) => a.number - b.number,
+      sorter: (a: ExitPass, b: ExitPass) => a.print_number - b.print_number,
       render: (v: number) => String(v).padStart(4, '0'),
     },
     {
