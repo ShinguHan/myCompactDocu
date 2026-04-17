@@ -42,12 +42,8 @@ def _next_exit_pass_number(db: Session) -> int:
     return (latest.number if latest else 0) + 1
 
 
-def _renumber_ledger_groups(db: Session) -> None:
-    """관리대장 번호를 날짜/등록순으로 다시 매긴다.
-
-    같은 반출증에 묶인 거래들은 하나의 관리대장 번호를 공유한다.
-    """
-    txs = (
+def _ordered_transactions(db: Session):
+    return (
         db.query(models.Transaction)
         .options(
             joinedload(models.Transaction.exit_pass_links).joinedload(
@@ -57,21 +53,48 @@ def _renumber_ledger_groups(db: Session) -> None:
         .order_by(models.Transaction.date.asc(), models.Transaction.id.asc())
         .all()
     )
-    existing_numbers = [tx.ledger_number for tx in txs if tx.ledger_number is not None]
-    group_numbers = {}
-    next_number = min(existing_numbers) if existing_numbers else 1
 
-    for tx in txs:
-        exit_pass_ids = sorted(
-            link.exit_pass_id for link in tx.exit_pass_links if link.exit_pass_id
-        )
-        group_key = (
-            ("exit_pass", exit_pass_ids[0]) if exit_pass_ids else ("transaction", tx.id)
-        )
-        if group_key not in group_numbers:
-            group_numbers[group_key] = next_number
+
+def _group_key(tx: models.Transaction):
+    exit_pass_ids = sorted(
+        link.exit_pass_id for link in tx.exit_pass_links if link.exit_pass_id
+    )
+    return ("exit_pass", exit_pass_ids[0]) if exit_pass_ids else ("transaction", tx.id)
+
+
+def _renumber_ledger_groups_from(db: Session, start_tx_id: int, start_number: Optional[int] = None) -> None:
+    """특정 거래부터 관리대장 번호를 다시 맞춘다.
+
+    사용자가 앞에서 수동으로 정한 번호는 유지하고,
+    변경이 발생한 지점 이후만 순차 재정렬한다.
+    """
+    txs = _ordered_transactions(db)
+    start_index = next((i for i, tx in enumerate(txs) if tx.id == start_tx_id), None)
+    if start_index is None:
+        return
+
+    group_numbers = {}
+
+    for tx in txs[:start_index]:
+        key = _group_key(tx)
+        if key not in group_numbers and tx.ledger_number is not None:
+            group_numbers[key] = tx.ledger_number
+
+    if start_number is not None:
+        next_number = start_number
+    elif txs[start_index].ledger_number is not None:
+        next_number = txs[start_index].ledger_number
+    elif start_index > 0 and txs[start_index - 1].ledger_number is not None:
+        next_number = txs[start_index - 1].ledger_number + 1
+    else:
+        next_number = 1
+
+    for tx in txs[start_index:]:
+        key = _group_key(tx)
+        if key not in group_numbers:
+            group_numbers[key] = next_number
             next_number += 1
-        tx.ledger_number = group_numbers[group_key]
+        tx.ledger_number = group_numbers[key]
 
 
 @router.get("", response_model=List[schemas.ExitPassRead])
@@ -158,7 +181,10 @@ def create_exit_pass(body: schemas.ExitPassCreate, db: Session = Depends(get_db)
         db.add(link)
 
     db.flush()
-    _renumber_ledger_groups(db)
+    start_tx = min(transactions, key=lambda tx: (tx.date, tx.id))
+    selected_numbers = [tx.ledger_number for tx in transactions if tx.ledger_number is not None]
+    start_number = min(selected_numbers) if selected_numbers else None
+    _renumber_ledger_groups_from(db, start_tx.id, start_number)
     db.commit()
     return _load_full(ep.id, db)
 
@@ -199,7 +225,19 @@ def delete_exit_pass(ep_id: int, db: Session = Depends(get_db)):
     ep = db.query(models.ExitPass).filter(models.ExitPass.id == ep_id).first()
     if not ep:
         raise HTTPException(status_code=404, detail="반출증을 찾을 수 없습니다")
+
+    affected = (
+        db.query(models.Transaction)
+        .join(models.ExitPassTransaction, models.ExitPassTransaction.transaction_id == models.Transaction.id)
+        .filter(models.ExitPassTransaction.exit_pass_id == ep_id)
+        .order_by(models.Transaction.date.asc(), models.Transaction.id.asc())
+        .all()
+    )
+    start_tx = affected[0] if affected else None
+    start_number = start_tx.ledger_number if start_tx else None
+
     db.delete(ep)
     db.flush()
-    _renumber_ledger_groups(db)
+    if start_tx:
+        _renumber_ledger_groups_from(db, start_tx.id, start_number)
     db.commit()
