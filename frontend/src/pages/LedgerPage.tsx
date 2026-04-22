@@ -19,14 +19,18 @@ const { Text } = Typography
 
 // ── 입력 폼 (배치 입력) ──────────────────────────────────────────────────────
 
-const MDF_ITEM_NAME = '폐목재_MDF'
+const VEHICLE_UNIT = '원/대'
+
+function isVehicleUnit(unit?: string | null) {
+  return unit === VEHICLE_UNIT
+}
 
 function BatchEntryForm({ onSaved }: { onSaved: () => void }) {
   const qc = useQueryClient()
   const [form] = Form.useForm()
   const [rows, setRows] = useState<any[]>([])
   const [selectedItemId, setSelectedItemId] = useState<number | undefined>()
-  const [isMdf, setIsMdf] = useState(false)
+  const [usesVehicleCount, setUsesVehicleCount] = useState(false)
   const [isWaste, setIsWaste] = useState(false)
 
   const { data: items = [] } = useQuery({ queryKey: ['items'], queryFn: () => api.getItems() })
@@ -67,8 +71,8 @@ function BatchEntryForm({ onSaved }: { onSaved: () => void }) {
       const date = values.date.format('YYYY-MM-DD')
       const qty = values.quantity
       const unitPrice = values.unit_price
-      const vehicleCount = isMdf ? (values.vehicle_count ?? null) : null
-      const rawAmount = isMdf && vehicleCount != null
+      const vehicleCount = usesVehicleCount ? (values.vehicle_count ?? null) : null
+      const rawAmount = usesVehicleCount && vehicleCount != null
         ? vehicleCount * unitPrice
         : qty * unitPrice
       const totalAmount = isWaste ? -Math.abs(rawAmount) : rawAmount
@@ -83,7 +87,7 @@ function BatchEntryForm({ onSaved }: { onSaved: () => void }) {
         _company_name: companies.find(c => c.id === values.company_id)?.name,
       }])
       form.setFieldsValue({ item_id: undefined, company_id: undefined, quantity: undefined, unit_price: undefined, vehicle_count: undefined, note: undefined })
-      setIsMdf(false)
+      setUsesVehicleCount(false)
       setIsWaste(false)
       setSelectedItemId(undefined)
     } catch { /* validation error */ }
@@ -92,7 +96,7 @@ function BatchEntryForm({ onSaved }: { onSaved: () => void }) {
   const onItemChange = async (itemId: number) => {
     setSelectedItemId(itemId)
     const item = items.find(i => i.id === itemId)
-    setIsMdf(item?.name === MDF_ITEM_NAME)
+    setUsesVehicleCount(isVehicleUnit(item?.unit))
     setIsWaste(item?.category === '폐기물')
     form.setFieldsValue({ company_id: undefined })
     const dateVal = form.getFieldValue('date')
@@ -133,7 +137,7 @@ function BatchEntryForm({ onSaved }: { onSaved: () => void }) {
         <Form.Item name="unit_price" label="단가" rules={[{ required: true, message: '단가 필수' }]}>
           <InputNumber style={{ width: 120 }} placeholder="단가" />
         </Form.Item>
-        {isMdf && (
+        {usesVehicleCount && (
           <Form.Item name="vehicle_count" label="차량 대수" rules={[{ required: true, message: '차량 대수 필수' }]}>
             <InputNumber style={{ width: 100 }} placeholder="대수" min={1} precision={0} />
           </Form.Item>
@@ -402,7 +406,7 @@ export default function LedgerPage() {
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [editItemId, setEditItemId] = useState<number | undefined>()
-  const [editIsMdf, setEditIsMdf] = useState(false)
+  const [editUsesVehicleCount, setEditUsesVehicleCount] = useState(false)
   const [editIsWaste, setEditIsWaste] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [showEntry, setShowEntry] = useState(false)
@@ -459,8 +463,8 @@ export default function LedgerPage() {
       } else {
         dateStr = editingTx!.date
       }
-      const vehicleCount = values.vehicle_count ?? null
-      const rawAmount = editIsMdf && vehicleCount != null
+      const vehicleCount = editUsesVehicleCount ? (values.vehicle_count ?? null) : null
+      const rawAmount = editUsesVehicleCount && vehicleCount != null
         ? vehicleCount * values.unit_price
         : values.quantity * values.unit_price
       const totalAmount = editIsWaste ? -Math.abs(rawAmount) : rawAmount
@@ -527,7 +531,7 @@ export default function LedgerPage() {
           <Button size="small" icon={<EditOutlined />} onClick={() => {
             setEditingTx(record)
             setEditItemId(record.item_id)
-            setEditIsMdf(record.item?.name === MDF_ITEM_NAME)
+            setEditUsesVehicleCount(isVehicleUnit(record.item?.unit))
             setEditIsWaste(record.item?.category === '폐기물')
             form.setFieldsValue({ ...record, date: dayjs(record.date) })
             setEditOpen(true)
@@ -646,9 +650,9 @@ export default function LedgerPage() {
               onChange={(id: number) => {
                 const item = items.find(i => i.id === id)
                 setEditItemId(id)
-                setEditIsMdf(item?.name === MDF_ITEM_NAME)
+                setEditUsesVehicleCount(isVehicleUnit(item?.unit))
                 setEditIsWaste(item?.category === '폐기물')
-                form.setFieldsValue({ company_id: undefined })
+                form.setFieldsValue({ company_id: undefined, vehicle_count: undefined })
               }} />
           </Form.Item>
           <Form.Item name="company_id" label="업체" rules={[{ required: true }]}>
@@ -660,7 +664,7 @@ export default function LedgerPage() {
           <Form.Item name="unit_price" label="단가" rules={[{ required: true }]}>
             <InputNumber style={{ width: '100%' }} />
           </Form.Item>
-          {editIsMdf && (
+          {editUsesVehicleCount && (
             <Form.Item name="vehicle_count" label="차량 대수" rules={[{ required: true, message: '차량 대수 필수' }]}>
               <InputNumber style={{ width: '100%' }} min={1} precision={0} />
             </Form.Item>

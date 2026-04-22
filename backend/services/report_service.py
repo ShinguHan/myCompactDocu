@@ -43,13 +43,14 @@ def get_monthly_summary(year: int, month: int, db: Session) -> schemas.MonthlySu
         factor = tx.item.kg_per_unit or 1.0
         if key not in curr_map:
             curr_map[key] = {
-                "qty": 0, "amt": 0, "ea": 0,
+                "qty": 0, "amt": 0, "ea": 0, "vehicles": 0,
                 "has_factor": tx.item.kg_per_unit is not None,
                 "unit": tx.item.unit,
             }
         curr_map[key]["qty"] += tx.quantity * factor  # 보고서 표시용 kg 환산
         curr_map[key]["ea"]  += tx.quantity           # 원래 EA/대 수량 (비고란)
         curr_map[key]["amt"] += tx.total_amount
+        curr_map[key]["vehicles"] += tx.vehicle_count or 0
 
     byproducts: List[schemas.ReportRow] = []
     wastes: List[schemas.ReportRow] = []
@@ -58,8 +59,8 @@ def get_monthly_summary(year: int, month: int, db: Session) -> schemas.MonthlySu
         prev_amt = prev_map.get((company_name, item_name), 0)
         if v["has_factor"]:
             note = f"{int(v['ea'])} EA"
-        elif v["unit"] == "원/대" and unit_price and v["amt"]:
-            trucks = int(round(abs(v["amt"]) / abs(unit_price)))
+        elif v["unit"] == "원/대" and (v["vehicles"] or (unit_price and v["amt"])):
+            trucks = int(v["vehicles"]) if v["vehicles"] else int(round(abs(v["amt"]) / abs(unit_price)))
             note = f"차량대수:{trucks}대"
         else:
             note = None
