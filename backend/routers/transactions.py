@@ -8,6 +8,10 @@ import io
 from database import get_db
 import models, schemas
 from services.import_service import parse_excel_preview, confirm_import
+from services.transaction_amount_service import (
+    get_item_or_404,
+    normalize_transaction_payload,
+)
 
 router = APIRouter(prefix="/api/transactions", tags=["transactions"])
 
@@ -99,6 +103,8 @@ def list_grouped(
 @router.post("", response_model=schemas.TransactionRead, status_code=201)
 def create_transaction(body: schemas.TransactionCreate, db: Session = Depends(get_db)):
     data = body.model_dump()
+    item = get_item_or_404(data["item_id"], db)
+    data = normalize_transaction_payload(data, item)
     if data.get("ledger_number") is None:
         data["ledger_number"] = _next_ledger_number(db)
     tx = models.Transaction(**data)
@@ -113,6 +119,8 @@ def batch_create(body: schemas.TransactionBatchCreate, db: Session = Depends(get
     txs = []
     for t in body.transactions:
         data = t.model_dump()
+        item = get_item_or_404(data["item_id"], db)
+        data = normalize_transaction_payload(data, item)
         txs.append(models.Transaction(**data))
     _assign_missing_ledger_numbers(txs, db)
     db.add_all(txs)
@@ -130,7 +138,23 @@ def update_transaction(tx_id: int, body: schemas.TransactionUpdate, db: Session 
         raise HTTPException(status_code=404, detail="거래를 찾을 수 없습니다")
 
     new_ledger = body.ledger_number  # None이면 변경 없음
-    for k, v in body.model_dump(exclude_none=True).items():
+    payload = body.model_dump(exclude_none=True)
+    item_id = payload.get("item_id", tx.item_id)
+    item = get_item_or_404(item_id, db)
+
+    if {"item_id", "quantity", "unit_price", "vehicle_count"} & payload.keys():
+        normalized = {
+            "item_id": item_id,
+            "quantity": payload.get("quantity", tx.quantity),
+            "unit_price": payload.get("unit_price", tx.unit_price),
+            "vehicle_count": payload.get("vehicle_count", tx.vehicle_count),
+        }
+        normalized = normalize_transaction_payload(normalized, item)
+        payload["item_id"] = normalized["item_id"]
+        payload["vehicle_count"] = normalized["vehicle_count"]
+        payload["total_amount"] = normalized["total_amount"]
+
+    for k, v in payload.items():
         setattr(tx, k, v)
 
     # 관리대장 번호가 지정된 경우: 이후 거래에 자동 증가 적용

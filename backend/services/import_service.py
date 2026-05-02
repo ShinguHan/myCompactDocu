@@ -11,6 +11,10 @@ from sqlalchemy.orm import Session
 
 import models
 import schemas
+from services.transaction_amount_service import (
+    get_item_or_404,
+    normalize_transaction_payload,
+)
 
 
 def parse_excel_preview(file_obj: io.BytesIO, db: Session) -> schemas.ImportPreview:
@@ -97,6 +101,8 @@ def confirm_import(rows: List[schemas.TransactionCreate], db: Session) -> List[m
 
     for r in rows:
         data = r.model_dump()
+        item = get_item_or_404(data["item_id"], db)
+        data = normalize_transaction_payload(data, item)
         if data.get("ledger_number") is None:
             data["ledger_number"] = next_ledger
             next_ledger += 1
